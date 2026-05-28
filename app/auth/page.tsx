@@ -64,7 +64,7 @@ export default function AuthPage() {
           {/* Logo */}
           <div className="text-center mb-8">
             <Wordmark className="text-3xl" />
-            <p className="text-sm text-ink-faint mt-1.5">Seating Planner</p>
+            <p className="text-sm text-ink-faint mt-1.5">Wedding Planner</p>
           </div>
 
           {/* Tab switcher */}

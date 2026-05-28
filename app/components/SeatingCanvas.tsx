@@ -31,6 +31,17 @@ import {
   findNearestSeat,
   type TableDims,
 } from '@/app/lib/geometry';
+import TableShapeIcon from './TableShapeIcon';
+
+// Table properties copied via "Copy table" and reproduced on paste.
+type ClipboardTable = {
+  shape:      'round' | 'rectangular';
+  seatCount:  number;
+  rotation:   number;
+  radius?:    number;
+  width?:     number;
+  height?:    number;
+};
 
 // ── Colour palette ─────────────────────────────────────────────────────────────
 const C = {
@@ -220,7 +231,7 @@ function TableNode({
 function FloatingEditPanel({
   table, liveDragX, liveDragY, canvasW, canvasH,
   label, seatCount, rotateMode, resizeMode,
-  onLabel, onSeatCount, onToggleRotate, onToggleResize, onCommitLabel, onCommitSeatCount, onDelete, onClose,
+  onLabel, onSeatCount, onToggleRotate, onToggleResize, onCopy, onCommitLabel, onCommitSeatCount, onDelete, onClose,
 }: {
   table:              Doc<'tables'>;
   liveDragX?:         number;
@@ -235,13 +246,15 @@ function FloatingEditPanel({
   onSeatCount:        (v: number) => void;
   onToggleRotate:     () => void;
   onToggleResize:     () => void;
+  onCopy:             () => void;
   onCommitLabel:      () => void;
   onCommitSeatCount:  (n: number) => void;
   onDelete:           () => void;
   onClose:            () => void;
 }) {
   const POPUP_W = 165;
-  const POPUP_H = 210; // approximate height for clamping
+  const POPUP_H = 250; // approximate height for clamping
+  const [copied, setCopied] = useState(false);
 
   // Follow the table during a drag
   const cx = liveDragX ?? table.x;
@@ -326,6 +339,18 @@ function FloatingEditPanel({
         ⤡  {table.shape === 'round' ? 'Resize' : 'Resize sides'}
       </button>
 
+      {/* Copy layout */}
+      <button
+        onClick={() => {
+          onCopy();
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="w-full text-xs py-1.5 rounded-lg mb-2.5 border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors"
+      >
+        {copied ? '✓ Copied' : '⧉  Copy table'}
+      </button>
+
       {/* Delete */}
       <button
         onClick={onDelete}
@@ -408,6 +433,10 @@ export default function SeatingCanvas({
   const [resizeMode, setResizeMode] = useState(false);
   const [liveSize,   setLiveSize]   = useState<TableDims | null>(null);
 
+  // ── Copy / paste + empty-area context menu ────────────────────────────────
+  const [clipboard,   setClipboard]   = useState<ClipboardTable | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
   // Stable refs so window listeners don't go stale
   const rotateRef        = useRef<{ startAngle: number; baseRotation: number } | null>(null);
   const resizeRef        = useRef<{ round: true } | { edge: 'left' | 'right' | 'top' | 'bottom' } | null>(null);
@@ -429,9 +458,10 @@ export default function SeatingCanvas({
     resizeRef.current = null;
   }, [selectedTableId]);
 
-  // ── Convex table update (used by rotation + resize commits) ───────────────
+  // ── Convex table mutations ────────────────────────────────────────────────
 
   const updateTable = useMutation(api.tables.update);
+  const createTable = useMutation(api.tables.create);
 
   // Rotate and resize are mutually exclusive modes.
   const toggleRotate = useCallback(() => {
@@ -447,6 +477,53 @@ export default function SeatingCanvas({
     rotateRef.current = null;
     setResizeMode(r => !r);
   }, []);
+
+  // Copy the selected table's shape, size, seat count, and rotation.
+  const copySelectedTable = useCallback(() => {
+    const t = selectedTableRef.current;
+    if (!t) return;
+    setClipboard({
+      shape: t.shape,
+      seatCount: t.seatCount,
+      rotation: t.rotation,
+      radius: t.radius,
+      width: t.width,
+      height: t.height,
+    });
+  }, []);
+
+  // Create a table at a canvas point. `props` overrides shape/size (used by paste).
+  const createTableAt = useCallback(
+    (x: number, y: number, props: Partial<ClipboardTable> & { shape: 'round' | 'rectangular' }) => {
+      createTable({
+        workspaceId,
+        shape: props.shape,
+        seatCount: props.seatCount ?? (props.shape === 'round' ? 8 : 6),
+        x: Math.round(x),
+        y: Math.round(y),
+        rotation: props.rotation ?? 0,
+        label: `Table ${tables.length + 1}`,
+        ...(props.radius != null ? { radius: props.radius } : {}),
+        ...(props.width  != null ? { width:  props.width }  : {}),
+        ...(props.height != null ? { height: props.height } : {}),
+      });
+      setContextMenu(null);
+    },
+    [createTable, workspaceId, tables.length]
+  );
+
+  // Close the context menu whenever a table becomes selected.
+  useEffect(() => {
+    if (selectedTableId) setContextMenu(null);
+  }, [selectedTableId]);
+
+  // Escape closes the context menu.
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [contextMenu]);
 
   // Window-level mouse handlers for rotation drag (capture even over the popup)
   useEffect(() => {
@@ -701,7 +778,11 @@ export default function SeatingCanvas({
       ref={containerRef}
       className="flex-1 overflow-hidden relative"
       style={{
-        background: C.canvasBg,
+        backgroundColor: C.canvasBg,
+        backgroundImage:
+          'linear-gradient(to right, rgba(26,31,46,0.05) 1px, transparent 1px),' +
+          'linear-gradient(to bottom, rgba(26,31,46,0.05) 1px, transparent 1px)',
+        backgroundSize: '26px 26px',
         cursor: rotateMode ? 'crosshair' : resizeMode ? 'nwse-resize' : 'default',
       }}
       onDragOver={e => e.preventDefault()}
@@ -728,7 +809,14 @@ export default function SeatingCanvas({
       <Stage
         width={size.width}
         height={size.height}
-        onClick={() => onSelectTable(null)}
+        onClick={e => {
+          // Empty-area click (table clicks cancel bubbling): deselect and open
+          // the context menu at the pointer. Skip while dragging a guest.
+          if (draggingGuestId) return;
+          const pos = e.target.getStage()?.getPointerPosition();
+          onSelectTable(null);
+          if (pos) setContextMenu({ x: pos.x, y: pos.y });
+        }}
       >
         {/* Tables layer */}
         <Layer>
@@ -825,11 +913,53 @@ export default function SeatingCanvas({
           onSeatCount={onEditSeatCount}
           onToggleRotate={toggleRotate}
           onToggleResize={toggleResize}
+          onCopy={copySelectedTable}
           onCommitLabel={onCommitLabel}
           onCommitSeatCount={onCommitSeatCount}
           onDelete={onDeleteSelected}
           onClose={() => onSelectTable(null)}
         />
+      )}
+
+      {/* Empty-area context menu — add tables / paste */}
+      {contextMenu && !selectedTable && (
+        <div
+          style={{
+            position: 'absolute',
+            left: Math.min(Math.max(contextMenu.x, 8), size.width - 168 - 8),
+            top:  Math.min(Math.max(contextMenu.y, 8), size.height - (clipboard ? 158 : 116) - 8),
+            width: 168,
+            zIndex: 50,
+          }}
+          className="bg-white rounded-xl shadow-lg border border-rule p-2.5 flex flex-col gap-2"
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+          onMouseMove={e => e.stopPropagation()}
+        >
+          <p className="text-xs font-medium text-ink-faint px-1">Add here</p>
+          <button
+            onClick={() => createTableAt(contextMenu.x, contextMenu.y, { shape: 'round' })}
+            className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-center gap-2"
+          >
+            Add
+            <TableShapeIcon shape="round" />
+          </button>
+          <button
+            onClick={() => createTableAt(contextMenu.x, contextMenu.y, { shape: 'rectangular' })}
+            className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-center gap-2"
+          >
+            Add
+            <TableShapeIcon shape="rectangular" />
+          </button>
+          {clipboard && (
+            <button
+              onClick={() => createTableAt(contextMenu.x, contextMenu.y, clipboard)}
+              className="btn btn-primary w-full text-sm px-3 py-2"
+            >
+              Paste table
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

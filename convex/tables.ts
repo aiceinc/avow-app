@@ -33,6 +33,9 @@ export const create = mutation({
     y: v.number(),
     rotation: v.number(),
     label: v.optional(v.string()),
+    radius: v.optional(v.number()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     await assertMember(ctx, args.workspaceId);
