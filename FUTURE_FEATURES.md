@@ -15,6 +15,26 @@ resisted during a focused build.
   seating planner; the guest list only shows current status read-only.
 - **Data export** — belongs to the future "Export" module.
 
+## Budget Tracker module (deferred from the v1.3.0 build)
+
+- **Category reordering** — drag-and-drop with persisted `order`. Schema already
+  has an `order` field; the UI sorts by it. Skipped for v1.3.0 (drag-drop +
+  persistence wasn't worth the time per the brief). Add later.
+- **Payment history / installments** — "Paid" is current-state only; no log of
+  who/when, no individually-tracked installments (Partial is a single
+  amount-paid number).
+- **Receipts / document attachments** — future.
+- **Multi-currency** — all amounts unlabeled (CAD assumed); no currency setting.
+- **Headcount-based calculations** — e.g. "$120/guest × 75". No Guest List
+  integration for the budget.
+- **Budget templates / copying budgets between workspaces** — each workspace
+  independent.
+- **Date tracking** for when line items were paid.
+- **Cents** — amounts are whole dollars for now; revisit if real invoices need
+  sub-dollar precision.
+- **Vendor as a reference** — `budgetLineItems.vendor` is free text; becomes
+  `Id<'vendors'>` when the Vendors module ships (TODO noted in schema).
+
 ## Placeholder modules (scaffolded as tabs, not built)
 
 Vendors, Budget, Wedding Website, Day-of Timeline currently render a branded

@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as budget from "../budget.js";
 import type * as cursors from "../cursors.js";
 import type * as guests from "../guests.js";
 import type * as http from "../http.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  budget: typeof budget;
   cursors: typeof cursors;
   guests: typeof guests;
   http: typeof http;

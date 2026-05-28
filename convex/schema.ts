@@ -91,6 +91,44 @@ export default defineSchema({
     .index("by_guestId", ["guestId"])
     .index("by_tableId_and_seatIndex", ["tableId", "seatIndex"]),
 
+  // ── Budget Tracker (v1.3.0) ───────────────────────────────────────────────
+  // Per-workspace budget settings. One row per workspace; targetBudget is
+  // absent until the couple sets it.
+  budgetSettings: defineTable({
+    workspaceId: v.id("workspaces"),
+    targetBudget: v.optional(v.number()), // whole dollars; absent = unset
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  // Spending categories. Seeded with 11 defaults on first Budget visit; users
+  // can rename/delete/add regardless of isDefault.
+  budgetCategories: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    order: v.number(),     // display order
+    isDefault: v.boolean(), // true for seeded categories
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  // Individual budget line items, grouped by category.
+  budgetLineItems: defineTable({
+    workspaceId: v.id("workspaces"),
+    categoryId: v.id("budgetCategories"),
+    name: v.string(),
+    estimatedCost: v.number(),            // whole dollars
+    actualCost: v.optional(v.number()),   // absent = not yet known
+    paidStatus: v.union(
+      v.literal("unpaid"),
+      v.literal("paid"),
+      v.literal("partial")
+    ),
+    amountPaid: v.optional(v.number()),   // only relevant when paidStatus === "partial"
+    notes: v.optional(v.string()),
+    // TODO: when the Vendors module ships, this becomes v.id("vendors").
+    // Kept as free text for now (see budget brief Part 4).
+    vendor: v.optional(v.string()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_categoryId", ["categoryId"]),
+
   // ── cursors ───────────────────────────────────────────────────────────────
   // High-churn ephemeral presence. One row per active user per workspace.
   cursors: defineTable({
