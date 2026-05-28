@@ -31,9 +31,8 @@ import {
   findNearestSeat,
   type TableDims,
 } from '@/app/lib/geometry';
-import TableShapeIcon from './TableShapeIcon';
 
-// Table properties copied via "Copy table" and reproduced on paste.
+// Table properties copied via "Copy table" and reproduced when the ghost is dropped.
 type ClipboardTable = {
   shape:      'round' | 'rectangular';
   seatCount:  number;
@@ -221,6 +220,39 @@ function TableNode({
   );
 }
 
+// ── GhostTable ───────────────────────────────────────────────────────────────
+
+/**
+ * Translucent preview of a copied table, rendered at the cursor while the user
+ * is choosing where to drop the duplicate. Non-interactive.
+ */
+function GhostTable({ clip, x, y }: { clip: ClipboardTable; x: number; y: number }) {
+  const r = getRadius(clip);
+  const w = getWidth(clip);
+  const h = getHeight(clip);
+  return (
+    <Group x={x} y={y} rotation={clip.rotation} opacity={0.4} listening={false}>
+      {clip.shape === 'round' ? (
+        <Circle radius={r} fill={C.tableFill} stroke={C.tableStrokeSelect} strokeWidth={2} dash={[4, 3]} />
+      ) : (
+        <Rect
+          x={-w / 2} y={-h / 2} width={w} height={h}
+          fill={C.tableFill} stroke={C.tableStrokeSelect} strokeWidth={2} cornerRadius={5} dash={[4, 3]}
+        />
+      )}
+      {Array.from({ length: clip.seatCount }, (_, i) => {
+        const local = getSeatLocalPosition(clip.shape, clip.seatCount, i, clip);
+        return (
+          <Circle
+            key={i} x={local.x} y={local.y} radius={SEAT_RADIUS}
+            fill={C.seatEmpty} stroke={C.seatEmptyStroke} strokeWidth={1}
+          />
+        );
+      })}
+    </Group>
+  );
+}
+
 // ── FloatingEditPanel ──────────────────────────────────────────────────────────
 
 /**
@@ -254,7 +286,6 @@ function FloatingEditPanel({
 }) {
   const POPUP_W = 165;
   const POPUP_H = 222; // approximate height for clamping
-  const [copied, setCopied] = useState(false);
 
   // Follow the table during a drag
   const cx = liveDragX ?? table.x;
@@ -339,16 +370,12 @@ function FloatingEditPanel({
         </button>
       </div>
 
-      {/* Copy layout */}
+      {/* Copy → place a duplicate (a ghost follows the cursor until you click) */}
       <button
-        onClick={() => {
-          onCopy();
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }}
+        onClick={onCopy}
         className="w-full text-xs py-1.5 rounded-lg mb-2.5 border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors"
       >
-        {copied ? '✓ Copied' : '⧉  Copy table'}
+        ⧉  Copy table
       </button>
 
       {/* Delete */}
@@ -433,10 +460,10 @@ export default function SeatingCanvas({
   const [resizeMode, setResizeMode] = useState(false);
   const [liveSize,   setLiveSize]   = useState<TableDims | null>(null);
 
-  // ── Copy / paste + empty-area context menu ────────────────────────────────
-  const [clipboard,   setClipboard]   = useState<ClipboardTable | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // ── Copy → place a translucent "ghost" duplicate that follows the cursor ───
+  const [clipboard, setClipboard] = useState<ClipboardTable | null>(null);
+  const [placing,   setPlacing]   = useState(false);
+  const [ghostPos,  setGhostPos]  = useState<{ x: number; y: number } | null>(null);
 
   // Stable refs so window listeners don't go stale
   const rotateRef        = useRef<{ startAngle: number; baseRotation: number } | null>(null);
@@ -479,7 +506,11 @@ export default function SeatingCanvas({
     setResizeMode(r => !r);
   }, []);
 
-  // Copy the selected table's shape, size, seat count, and rotation.
+  // Latest pointer position over the canvas (used to seat the ghost on copy).
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Copy the selected table's shape/size/seats/rotation, then enter placement
+  // mode: a translucent ghost follows the cursor until the user clicks to drop.
   const copySelectedTable = useCallback(() => {
     const t = selectedTableRef.current;
     if (!t) return;
@@ -491,50 +522,41 @@ export default function SeatingCanvas({
       width: t.width,
       height: t.height,
     });
-  }, []);
+    setGhostPos(lastPointerRef.current ?? { x: t.x, y: t.y });
+    setPlacing(true);
+    onSelectTable(null); // close the popup so the ghost can be placed
+  }, [onSelectTable]);
 
-  // Create a table at a canvas point. `props` overrides shape/size (used by paste).
-  const createTableAt = useCallback(
-    (x: number, y: number, props: Partial<ClipboardTable> & { shape: 'round' | 'rectangular' }) => {
+  // Drop the ghost: create the table at the click point and leave placement mode.
+  const handleCanvasClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!placing || !clipboard) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
       createTable({
         workspaceId,
-        shape: props.shape,
-        seatCount: props.seatCount ?? (props.shape === 'round' ? 8 : 6),
-        x: Math.round(x),
-        y: Math.round(y),
-        rotation: props.rotation ?? 0,
+        shape: clipboard.shape,
+        seatCount: clipboard.seatCount,
+        x: Math.round(e.clientX - rect.left),
+        y: Math.round(e.clientY - rect.top),
+        rotation: clipboard.rotation,
         label: `Table ${tables.length + 1}`,
-        ...(props.radius != null ? { radius: props.radius } : {}),
-        ...(props.width  != null ? { width:  props.width }  : {}),
-        ...(props.height != null ? { height: props.height } : {}),
+        ...(clipboard.radius != null ? { radius: clipboard.radius } : {}),
+        ...(clipboard.width  != null ? { width:  clipboard.width }  : {}),
+        ...(clipboard.height != null ? { height: clipboard.height } : {}),
       });
-      setContextMenu(null);
+      setPlacing(false);
     },
-    [createTable, workspaceId, tables.length]
+    [placing, clipboard, createTable, workspaceId, tables.length]
   );
 
-  // Close the context menu whenever a table becomes selected.
+  // Escape cancels placement without creating a table.
   useEffect(() => {
-    if (selectedTableId) setContextMenu(null);
-  }, [selectedTableId]);
-
-  // While open, close the context menu on Escape or any click outside it.
-  // (The listener is attached after the opening click has already propagated,
-  // so it doesn't immediately re-close.)
-  useEffect(() => {
-    if (!contextMenu) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
-    const onDocClick = (e: MouseEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return; // click inside the menu
-      setContextMenu(null);
-    };
+    if (!placing) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPlacing(false); };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('click', onDocClick);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('click', onDocClick);
-    };
-  }, [contextMenu]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [placing]);
 
   // Window-level mouse handlers for rotation drag (capture even over the popup)
   useEffect(() => {
@@ -714,22 +736,30 @@ export default function SeatingCanvas({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      lastPointerRef.current = { x: px, y: py };
+
+      // Move the placement ghost (unthrottled, so it tracks smoothly).
+      if (placing) setGhostPos({ x: px, y: py });
+
+      // Broadcast the live cursor (throttled, auth-gated).
       if (!myUserId || !isAuthenticated) return;
       const now = Date.now();
       if (now - lastCursorWriteRef.current < CURSOR_THROTTLE_MS) return;
       lastCursorWriteRef.current = now;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
       upsertCursor({
         workspaceId,
         userId: myUserId,
         label:  myLabel,
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: px,
+        y: py,
         updatedAt: now,
       });
     },
-    [upsertCursor, workspaceId, myUserId, myLabel, isAuthenticated]
+    [upsertCursor, workspaceId, myUserId, myLabel, isAuthenticated, placing]
   );
 
   useEffect(() => {
@@ -794,12 +824,14 @@ export default function SeatingCanvas({
           'linear-gradient(to right, rgba(26,31,46,0.05) 1px, transparent 1px),' +
           'linear-gradient(to bottom, rgba(26,31,46,0.05) 1px, transparent 1px)',
         backgroundSize: '26px 26px',
-        cursor: rotateMode ? 'crosshair' : resizeMode ? 'nwse-resize' : 'default',
+        cursor: placing ? 'copy' : rotateMode ? 'crosshair' : resizeMode ? 'nwse-resize' : 'default',
       }}
       onDragOver={e => e.preventDefault()}
       onDrop={handleDrop}
       onMouseMove={handleMouseMove}
       onMouseDown={handleMouseDown}
+      onClick={handleCanvasClick}
+      onContextMenu={e => e.preventDefault()}
     >
       {/* Empty-state hint */}
       {tables.length === 0 && (
@@ -820,17 +852,10 @@ export default function SeatingCanvas({
       <Stage
         width={size.width}
         height={size.height}
-        onClick={e => {
-          // Empty-area click (table clicks cancel bubbling): deselect and open
-          // the context menu at the pointer. Skip while dragging a guest.
-          if (draggingGuestId) return;
-          const pos = e.target.getStage()?.getPointerPosition();
-          onSelectTable(null);
-          if (pos) setContextMenu({ x: pos.x, y: pos.y });
-        }}
+        onClick={() => { if (!placing) onSelectTable(null); }}
       >
-        {/* Tables layer */}
-        <Layer>
+        {/* Tables layer — non-interactive while placing a ghost, so any click drops it */}
+        <Layer listening={!placing}>
           {tables.map(table => (
             <TableNode
               key={table._id}
@@ -862,6 +887,11 @@ export default function SeatingCanvas({
               }}
             />
           ))}
+
+          {/* Placement ghost — a translucent preview of the copied table */}
+          {placing && clipboard && ghostPos && (
+            <GhostTable clip={clipboard} x={ghostPos.x} y={ghostPos.y} />
+          )}
         </Layer>
 
         {/* Rotate-mode overlay: world-aligned crosshairs + ring */}
@@ -932,45 +962,12 @@ export default function SeatingCanvas({
         />
       )}
 
-      {/* Empty-area context menu — add tables / paste */}
-      {contextMenu && !selectedTable && (
-        <div
-          ref={menuRef}
-          style={{
-            position: 'absolute',
-            left: Math.min(Math.max(contextMenu.x, 8), size.width - 168 - 8),
-            top:  Math.min(Math.max(contextMenu.y, 8), size.height - (clipboard ? 158 : 116) - 8),
-            width: 168,
-            zIndex: 50,
-          }}
-          className="bg-white rounded-xl shadow-lg border border-rule p-2.5 flex flex-col gap-2"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-          onMouseMove={e => e.stopPropagation()}
-        >
-          <p className="text-xs font-medium text-ink-faint px-1">Add a table here</p>
-          <button
-            onClick={() => createTableAt(contextMenu.x, contextMenu.y, { shape: 'round' })}
-            className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-center gap-2"
-          >
-            Add
-            <TableShapeIcon shape="round" />
-          </button>
-          <button
-            onClick={() => createTableAt(contextMenu.x, contextMenu.y, { shape: 'rectangular' })}
-            className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-center gap-2"
-          >
-            Add
-            <TableShapeIcon shape="rectangular" />
-          </button>
-          {clipboard && (
-            <button
-              onClick={() => createTableAt(contextMenu.x, contextMenu.y, clipboard)}
-              className="btn btn-primary w-full text-sm px-3 py-2"
-            >
-              Paste table
-            </button>
-          )}
+      {/* Placement hint while a ghost is following the cursor */}
+      {placing && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+          <span className="bg-bg-tint border border-accent-soft text-ink-soft text-xs px-3 py-1.5 rounded-full shadow-sm">
+            Click to place the copy · Esc to cancel
+          </span>
         </div>
       )}
     </div>
