@@ -14,6 +14,7 @@
  */
 
 import { Doc } from '@/convex/_generated/dataModel';
+import { sideBadgeClasses, sideShortLabel } from '@/app/lib/guests';
 
 type Props = {
   guests:          Doc<'guests'>[];
@@ -22,19 +23,6 @@ type Props = {
   onDragStart:     (guestId: string) => void;
   onDragEnd:       () => void;
 };
-
-// Small badge colour per guest side
-function sideBadge(side: string): string {
-  if (side === 'Partner A') return 'bg-blue-100 text-blue-700';
-  if (side === 'Partner B') return 'bg-rose-100 text-rose-700';
-  return 'bg-violet-100 text-violet-700';
-}
-
-function sideLabel(side: string): string {
-  if (side === 'Partner A') return 'A';
-  if (side === 'Partner B') return 'B';
-  return '♥';
-}
 
 function GuestCard({
   guest,
@@ -69,9 +57,9 @@ function GuestCard({
     >
       {/* Side badge */}
       <span
-        className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${sideBadge(guest.side)}`}
+        className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${sideBadgeClasses(guest.side)}`}
       >
-        {sideLabel(guest.side)}
+        {sideShortLabel(guest.side)}
       </span>
 
       {/* Name */}

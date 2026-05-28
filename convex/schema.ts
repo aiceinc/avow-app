@@ -49,6 +49,18 @@ export default defineSchema({
       v.literal("both")
     ),
     dietaryNotes: v.optional(v.string()),
+    // Guest List module fields (added v1.2.0). All optional for backward
+    // compatibility — pre-existing guests render as "pending" / no plus-one.
+    rsvpStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("yes"),
+        v.literal("no"),
+        v.literal("maybe")
+      )
+    ),
+    hasPlusOne: v.optional(v.boolean()),
+    plusOneName: v.optional(v.string()),
   }).index("by_workspaceId", ["workspaceId"]),
 
   // ── tables ────────────────────────────────────────────────────────────────

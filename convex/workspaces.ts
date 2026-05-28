@@ -83,7 +83,11 @@ export const get = query({
 
 /**
  * Create a new workspace and make the current user its first member.
- * Seeds the workspace with 18 fake guests automatically.
+ *
+ * As of v1.2.0 (Guest List module), new workspaces start with an EMPTY guest
+ * list — guests are added by the couple via the Guest List module. (Previously
+ * this seeded 18 fake guests; that seeding was removed so real users don't
+ * inherit placeholder data. Existing workspaces keep whatever guests they have.)
  */
 export const create = mutation({
   args: { name: v.string() },
@@ -100,9 +104,6 @@ export const create = mutation({
       workspaceId,
       userId,
     });
-
-    // Seed guests for this workspace
-    await seedGuests(ctx, workspaceId);
 
     return workspaceId;
   },
@@ -203,39 +204,3 @@ export const joinByInviteCode = mutation({
     return workspace._id;
   },
 });
-
-// ── Internal helpers ──────────────────────────────────────────────────────────
-
-const SEED_GUESTS = [
-  { name: "Margaret Chen",    side: "Partner A" as const, dietaryNotes: "Vegetarian" },
-  { name: "David Chen",       side: "Partner A" as const },
-  { name: "Susan Park",       side: "Partner A" as const },
-  { name: "James Park",       side: "Partner A" as const, dietaryNotes: "Nut allergy" },
-  { name: "Olivia Torres",    side: "Partner A" as const },
-  { name: "Rafael Torres",    side: "Partner A" as const },
-  { name: "Clara Osei",       side: "Partner A" as const, dietaryNotes: "Vegan" },
-  { name: "William Nakamura", side: "Partner B" as const },
-  { name: "Helen Nakamura",   side: "Partner B" as const },
-  { name: "Thomas Reyes",     side: "Partner B" as const },
-  { name: "Priya Sharma",     side: "Partner B" as const, dietaryNotes: "Gluten-free" },
-  { name: "Marcus Johnson",   side: "Partner B" as const },
-  { name: "Ingrid Larsen",    side: "Partner B" as const },
-  { name: "Kwame Asante",     side: "Partner B" as const },
-  { name: "Sophie Dubois",    side: "both" as const },
-  { name: "Ethan Dubois",     side: "both" as const },
-  { name: "Nadia Petrov",     side: "both" as const },
-  { name: "Leo Andersen",     side: "both" as const, dietaryNotes: "Kosher" },
-];
-
-/**
- * Insert the 18 seed guests for a newly created workspace.
- * Called internally — not exposed as a public mutation.
- */
-async function seedGuests(
-  ctx: import("./_generated/server").MutationCtx,
-  workspaceId: import("./_generated/dataModel").Id<"workspaces">
-) {
-  for (const guest of SEED_GUESTS) {
-    await ctx.db.insert("guests", { workspaceId, ...guest });
-  }
-}
