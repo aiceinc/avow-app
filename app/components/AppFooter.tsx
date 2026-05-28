@@ -5,7 +5,7 @@
 export default function AppFooter() {
   return (
     <footer className="flex items-center justify-between px-10 py-4 border-t border-rule text-xs text-ink-faint tracking-wide shrink-0">
-      <span>v1.1.2</span>
+      <span>v1.1.3</span>
       <span>© 2026 AICE Inc.</span>
     </footer>
   );

@@ -263,13 +263,13 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
   function handleResetAll() {
     if (tables.length === 0) return;
     showConfirm(
-      'Reset the layout? This removes all tables and their seat assignments.',
+      'Start over? This removes all tables and their seat assignments.',
       async () => {
         closeModal();
         setSelectedTableId(null);
         await clearAll({ workspaceId });
       },
-      'Reset all',
+      'Start over',
       true
     );
   }
@@ -460,7 +460,7 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
             onClick={handleResetAll}
             className="btn btn-danger w-full text-sm px-3 py-2 mt-auto"
           >
-            Reset all
+            Start over
           </button>
         </div>
 

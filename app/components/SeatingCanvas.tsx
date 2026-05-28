@@ -253,7 +253,7 @@ function FloatingEditPanel({
   onClose:            () => void;
 }) {
   const POPUP_W = 165;
-  const POPUP_H = 250; // approximate height for clamping
+  const POPUP_H = 222; // approximate height for clamping
   const [copied, setCopied] = useState(false);
 
   // Follow the table during a drag
@@ -315,29 +315,29 @@ function FloatingEditPanel({
         </div>
       </div>
 
-      {/* Rotate toggle — blue when active signals rotate mode (matches crosshair) */}
-      <button
-        onClick={onToggleRotate}
-        className={`w-full text-xs py-1.5 rounded-lg mb-2 border transition-colors ${
-          rotateMode
-            ? 'bg-blue-600 border-blue-600 text-white'
-            : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
-        }`}
-      >
-        ↺  Rotate
-      </button>
-
-      {/* Resize toggle — gold when active (matches the gold drag handles) */}
-      <button
-        onClick={onToggleResize}
-        className={`w-full text-xs py-1.5 rounded-lg mb-2.5 border transition-colors ${
-          resizeMode
-            ? 'bg-accent border-accent text-white'
-            : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
-        }`}
-      >
-        ⤡  {table.shape === 'round' ? 'Resize' : 'Resize sides'}
-      </button>
+      {/* Rotate (blue, matches crosshair) + Resize (gold, matches handles) — side by side */}
+      <div className="flex gap-2 mb-2.5">
+        <button
+          onClick={onToggleRotate}
+          className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+            rotateMode
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
+          }`}
+        >
+          ↺  Rotate
+        </button>
+        <button
+          onClick={onToggleResize}
+          className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+            resizeMode
+              ? 'bg-accent border-accent text-white'
+              : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
+          }`}
+        >
+          ⤡  Resize
+        </button>
+      </div>
 
       {/* Copy layout */}
       <button
@@ -436,6 +436,7 @@ export default function SeatingCanvas({
   // ── Copy / paste + empty-area context menu ────────────────────────────────
   const [clipboard,   setClipboard]   = useState<ClipboardTable | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Stable refs so window listeners don't go stale
   const rotateRef        = useRef<{ startAngle: number; baseRotation: number } | null>(null);
@@ -517,12 +518,22 @@ export default function SeatingCanvas({
     if (selectedTableId) setContextMenu(null);
   }, [selectedTableId]);
 
-  // Escape closes the context menu.
+  // While open, close the context menu on Escape or any click outside it.
+  // (The listener is attached after the opening click has already propagated,
+  // so it doesn't immediately re-close.)
   useEffect(() => {
     if (!contextMenu) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return; // click inside the menu
+      setContextMenu(null);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('click', onDocClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('click', onDocClick);
+    };
   }, [contextMenu]);
 
   // Window-level mouse handlers for rotation drag (capture even over the popup)
@@ -924,6 +935,7 @@ export default function SeatingCanvas({
       {/* Empty-area context menu — add tables / paste */}
       {contextMenu && !selectedTable && (
         <div
+          ref={menuRef}
           style={{
             position: 'absolute',
             left: Math.min(Math.max(contextMenu.x, 8), size.width - 168 - 8),
@@ -936,7 +948,7 @@ export default function SeatingCanvas({
           onMouseDown={e => e.stopPropagation()}
           onMouseMove={e => e.stopPropagation()}
         >
-          <p className="text-xs font-medium text-ink-faint px-1">Add here</p>
+          <p className="text-xs font-medium text-ink-faint px-1">Add a table here</p>
           <button
             onClick={() => createTableAt(contextMenu.x, contextMenu.y, { shape: 'round' })}
             className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-center gap-2"
