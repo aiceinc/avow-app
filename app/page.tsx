@@ -20,13 +20,15 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import GuestPanel from './components/GuestPanel';
 import ConfirmModal from './components/ConfirmModal';
+import Wordmark from './components/Wordmark';
+import AppFooter from './components/AppFooter';
 import { TEMPLATES, TemplateKey } from './lib/templates';
 
 const SeatingCanvas = dynamic(() => import('./components/SeatingCanvas'), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 flex items-center justify-center bg-stone-50">
-      <p className="text-sm text-gray-400">Loading canvas…</p>
+    <div className="flex-1 flex items-center justify-center bg-bg">
+      <p className="text-sm text-ink-faint">Loading canvas…</p>
     </div>
   ),
 });
@@ -70,41 +72,42 @@ function WorkspaceScreen({
 
   // Still loading
   if (workspaces === undefined) {
-    return <Centered><p className="text-sm text-gray-400">Loading…</p></Centered>;
+    return <Centered><p className="text-sm text-ink-faint">Loading…</p></Centered>;
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-sm p-8">
-        <div className="text-center mb-8">
-          <span className="text-2xl font-semibold text-gray-900">Avow</span>
-          <p className="text-sm text-gray-500 mt-1">Seating Planner</p>
-        </div>
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-rule w-full max-w-sm p-8 animate-fade-in">
+          <div className="text-center mb-8">
+            <Wordmark className="text-3xl" />
+            <p className="text-sm text-ink-faint mt-1.5">Seating Planner</p>
+          </div>
 
         {/* Existing workspaces */}
         {workspaces.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs font-medium text-gray-500 mb-3">Your workspaces</p>
+            <p className="text-xs font-medium text-ink-faint mb-3">Your workspaces</p>
             <div className="space-y-2">
               {workspaces.map(ws => (
                 <button
                   key={ws._id}
                   onClick={() => onSelect(ws._id)}
-                  className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-colors"
+                  className="w-full text-left px-4 py-3 border border-rule rounded-lg hover:border-accent hover:bg-bg-tint transition-colors"
                 >
-                  <div className="text-sm font-medium text-gray-800">{ws.name}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">
+                  <div className="text-sm font-medium text-ink">{ws.name}</div>
+                  <div className="text-xs text-ink-faint mt-0.5">
                     {ws.members.length === 1 ? '1 member' : `${ws.members.length} members`}
                   </div>
                 </button>
               ))}
             </div>
-            <div className="my-6 border-t border-gray-100" />
+            <div className="my-6 border-t border-rule" />
           </div>
         )}
 
         {/* Create workspace form */}
-        <p className="text-xs font-medium text-gray-500 mb-3">
+        <p className="text-xs font-medium text-ink-faint mb-3">
           {workspaces.length === 0 ? 'Create your first workspace' : 'Create another workspace'}
         </p>
         <form onSubmit={handleCreate} className="space-y-3">
@@ -113,7 +116,7 @@ function WorkspaceScreen({
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="e.g. Alex & Jordan's Wedding"
-            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            className="app-input w-full text-sm px-3 py-2.5"
           />
           {error && (
             <p className="text-xs text-red-600">{error}</p>
@@ -121,19 +124,21 @@ function WorkspaceScreen({
           <button
             type="submit"
             disabled={creating || !name.trim()}
-            className="w-full text-sm py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="btn btn-primary w-full text-sm py-2.5"
           >
             {creating ? 'Creating…' : 'Create workspace'}
           </button>
         </form>
 
-        <button
-          onClick={async () => { await signOut(); router.push('/auth'); }}
-          className="mt-6 w-full text-xs text-gray-400 hover:text-gray-600"
-        >
-          Sign out
-        </button>
+          <button
+            onClick={async () => { await signOut(); router.push('/auth'); }}
+            className="mt-6 w-full text-xs text-ink-faint hover:text-ink-soft transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
+      <AppFooter />
     </div>
   );
 }
@@ -338,26 +343,26 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-white">
+    <div className="flex flex-col h-screen overflow-hidden bg-bg">
 
       {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200 bg-white shrink-0 z-10">
-        <span className="font-semibold text-gray-800 text-sm mr-1">Avow</span>
-        <span className="text-gray-300 text-sm">·</span>
-        <span className="text-gray-500 text-sm mr-3">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-rule bg-bg/80 backdrop-blur-sm shrink-0 z-10">
+        <Wordmark className="text-lg mr-1" />
+        <span className="text-ink-faint/50 text-sm">·</span>
+        <span className="text-ink-soft text-sm mr-3">
           {workspace?.name ?? 'Seating Planner'}
         </span>
 
         <button
           onClick={() => handleAddTable('round')}
-          className="text-sm px-3 py-1.5 bg-gray-900 text-white rounded hover:bg-gray-700 transition-colors"
+          className="btn btn-primary text-sm px-3 py-1.5"
         >
           + Round Table
         </button>
 
         <button
           onClick={() => handleAddTable('rectangular')}
-          className="text-sm px-3 py-1.5 bg-gray-900 text-white rounded hover:bg-gray-700 transition-colors"
+          className="btn btn-primary text-sm px-3 py-1.5"
         >
           + Rect Table
         </button>
@@ -366,21 +371,21 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
         <div className="relative" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => setTemplateMenuOpen(o => !o)}
-            className="text-sm px-3 py-1.5 text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            className="btn btn-secondary text-sm px-3 py-1.5"
           >
             Use Template ▾
           </button>
           {templateMenuOpen && (
-            <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+            <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden">
               {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(
                 ([key, tmpl]) => (
                   <button
                     key={key}
                     onClick={() => handleApplyTemplate(key)}
-                    className="block w-full text-left px-4 py-3 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg border-b last:border-0 border-gray-100"
+                    className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors"
                   >
-                    <div className="text-sm text-gray-800">{tmpl.label}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{tmpl.description}</div>
+                    <div className="text-sm text-ink">{tmpl.label}</div>
+                    <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
                   </button>
                 )
               )}
@@ -392,18 +397,18 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
         {!inviteCode ? (
           <button
             onClick={handleGenerateInvite}
-            className="text-sm px-3 py-1.5 text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            className="btn btn-secondary text-sm px-3 py-1.5"
           >
             Invite partner
           </button>
         ) : (
           <div className="flex items-center gap-1.5">
-            <code className="text-xs bg-amber-50 border border-amber-200 text-amber-800 px-2 py-1 rounded font-mono">
+            <code className="text-xs bg-bg-tint border border-accent-soft text-ink-soft px-2 py-1 rounded font-mono">
               {`/invite?code=${inviteCode}`}
             </code>
             <button
               onClick={handleCopyInvite}
-              className="text-xs px-2 py-1 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              className="btn btn-secondary text-xs px-2 py-1"
             >
               {inviteCopied ? '✓ Copied' : 'Copy link'}
             </button>
@@ -412,14 +417,14 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
 
         {/* Right side: stats + sign out */}
         <div className="ml-auto flex items-center gap-4">
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-ink-faint">
             {tables.length} table{tables.length !== 1 ? 's' : ''} ·{' '}
             {guests.length} guests ·{' '}
             {assignments.length} seated
           </div>
           <button
             onClick={async () => { await signOut(); router.push('/auth'); }}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-ink-faint hover:text-ink-soft transition-colors"
           >
             Sign out
           </button>
@@ -459,6 +464,8 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
         />
       </div>
 
+      <AppFooter />
+
       {modal && (
         <ConfirmModal
           message={modal.message}
@@ -486,7 +493,7 @@ export default function Home() {
   }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
-    return <Centered><p className="text-sm text-gray-400">Loading…</p></Centered>;
+    return <Centered><p className="text-sm text-ink-faint">Loading…</p></Centered>;
   }
 
   if (!isAuthenticated) {
@@ -502,7 +509,7 @@ export default function Home() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       {children}
     </div>
   );

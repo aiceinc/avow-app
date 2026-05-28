@@ -60,10 +60,10 @@ function GuestCard({
       onDragEnd={onDragEnd}
       className={[
         'flex items-center gap-2 px-3 py-2 rounded-md border',
-        'cursor-grab active:cursor-grabbing select-none transition-opacity',
+        'cursor-grab active:cursor-grabbing select-none transition-colors',
         isAssigned
-          ? 'bg-gray-50 border-gray-200 opacity-50'
-          : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm',
+          ? 'bg-bg-tint border-rule opacity-60'
+          : 'bg-white border-rule hover:border-accent shadow-sm',
         isDragging ? 'opacity-30' : '',
       ].join(' ')}
     >
@@ -77,7 +77,7 @@ function GuestCard({
       {/* Name */}
       <span
         className={`text-sm flex-1 min-w-0 truncate ${
-          isAssigned ? 'text-gray-400 line-through' : 'text-gray-700'
+          isAssigned ? 'text-ink-faint line-through' : 'text-ink-soft'
         }`}
       >
         {guest.name}
@@ -109,11 +109,11 @@ export default function GuestPanel({
   const seated     = guests.filter(g =>  assignedIds.has(g._id));
 
   return (
-    <div className="w-72 border-l border-gray-200 bg-white flex flex-col h-full overflow-hidden shrink-0">
+    <div className="w-72 border-l border-rule bg-white/60 flex flex-col h-full overflow-hidden shrink-0">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 shrink-0">
-        <h2 className="text-sm font-semibold text-gray-800">Guests</h2>
-        <p className="text-xs text-gray-400 mt-0.5">
+      <div className="px-4 py-3 border-b border-rule shrink-0">
+        <h2 className="text-sm font-semibold text-ink">Guests</h2>
+        <p className="text-xs text-ink-faint mt-0.5">
           {unassigned.length} unassigned · {seated.length} seated
         </p>
       </div>
@@ -121,7 +121,7 @@ export default function GuestPanel({
       {/* List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
         {guests.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-10">
+          <p className="text-sm text-ink-faint text-center py-10">
             No guests loaded
           </p>
         )}
@@ -142,7 +142,7 @@ export default function GuestPanel({
         {seated.length > 0 && (
           <>
             <div className="pt-3 pb-1">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-1">
+              <p className="text-xs font-medium text-ink-faint uppercase tracking-wide px-1">
                 Seated ({seated.length})
               </p>
             </div>
@@ -161,8 +161,8 @@ export default function GuestPanel({
       </div>
 
       {/* Footer hint */}
-      <div className="px-4 py-2.5 border-t border-gray-100 shrink-0">
-        <p className="text-xs text-gray-400">
+      <div className="px-4 py-2.5 border-t border-rule shrink-0">
+        <p className="text-xs text-ink-faint">
           Drag a guest onto a seat · Click a seat to unassign
         </p>
       </div>

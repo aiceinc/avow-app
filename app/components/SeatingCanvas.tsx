@@ -219,7 +219,7 @@ function FloatingEditPanel({
   return (
     <div
       style={{ position: 'absolute', left, top, width: POPUP_W, zIndex: 50 }}
-      className="bg-white rounded-xl shadow-lg border border-gray-200 p-2.5"
+      className="bg-white rounded-xl shadow-lg border border-rule p-2.5"
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
       onMouseMove={e => e.stopPropagation()}
@@ -233,13 +233,13 @@ function FloatingEditPanel({
           onKeyDown={e => { if (e.key === 'Enter') onCommitLabel(); }}
           onBlur={onCommitLabel}
           placeholder="Table name"
-          className="text-xs font-medium border-0 border-b border-gray-200 focus:outline-none focus:border-amber-400 bg-transparent w-full mr-2 pb-0.5"
+          className="text-xs font-medium border-0 border-b border-rule focus:outline-none focus:border-accent bg-transparent w-full mr-2 pb-0.5 text-ink"
         />
-        <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-xs shrink-0">✕</button>
+        <button onClick={onClose} className="text-ink-faint hover:text-ink-soft text-xs shrink-0 transition-colors">✕</button>
       </div>
 
       {/* Seat count — stepper */}
-      <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5">
+      <div className="flex items-center justify-between text-xs text-ink-soft mb-2.5">
         <span>Seats</span>
         <div className="flex items-center gap-2">
           <button
@@ -248,27 +248,27 @@ function FloatingEditPanel({
               onSeatCount(n);
               onCommitSeatCount(n);
             }}
-            className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors leading-none select-none"
+            className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
           >−</button>
-          <span className="w-5 text-center font-medium text-gray-800 tabular-nums">{seatCount}</span>
+          <span className="w-5 text-center font-medium text-ink tabular-nums">{seatCount}</span>
           <button
             onClick={() => {
               const n = Math.min(20, seatCount + 1);
               onSeatCount(n);
               onCommitSeatCount(n);
             }}
-            className="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors leading-none select-none"
+            className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
           >+</button>
         </div>
       </div>
 
-      {/* Rotate toggle — colour changes, text stays */}
+      {/* Rotate toggle — blue when active signals rotate mode (matches crosshair) */}
       <button
         onClick={onToggleRotate}
         className={`w-full text-xs py-1.5 rounded-lg mb-2.5 border transition-colors ${
           rotateMode
             ? 'bg-blue-600 border-blue-600 text-white'
-            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
         }`}
       >
         ↺  Rotate
@@ -528,14 +528,14 @@ export default function SeatingCanvas({
       {/* Empty-state hint */}
       {tables.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-sm text-gray-400">Add a table or choose a template to get started</p>
+          <p className="text-sm text-ink-faint">Add a table or choose a template to get started</p>
         </div>
       )}
 
       {/* Guest-drop hint */}
       {draggingGuestId && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-          <span className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-1.5 rounded-full shadow-sm">
+          <span className="bg-bg-tint border border-accent-soft text-ink-soft text-xs px-3 py-1.5 rounded-full shadow-sm">
             Drop on a seat to assign
           </span>
         </div>

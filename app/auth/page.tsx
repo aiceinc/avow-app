@@ -3,6 +3,8 @@
 import { useState, FormEvent } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
+import Wordmark from '../components/Wordmark';
+import AppFooter from '../components/AppFooter';
 
 type Flow = 'signIn' | 'signUp';
 
@@ -55,94 +57,97 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-sm p-8">
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-rule w-full max-w-sm p-8 animate-fade-in">
 
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <span className="text-2xl font-semibold text-gray-900">Avow</span>
-          <p className="text-sm text-gray-500 mt-1">Seating Planner</p>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex border border-gray-200 rounded-lg p-1 mb-6">
-          <button
-            type="button"
-            onClick={() => { setFlow('signIn'); setError(null); }}
-            className={`flex-1 text-sm py-1.5 rounded-md transition-colors ${
-              flow === 'signIn'
-                ? 'bg-gray-900 text-white'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            onClick={() => { setFlow('signUp'); setError(null); }}
-            className={`flex-1 text-sm py-1.5 rounded-md transition-colors ${
-              flow === 'signUp'
-                ? 'bg-gray-900 text-white'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Create account
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-            />
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <Wordmark className="text-3xl" />
+            <p className="text-sm text-ink-faint mt-1.5">Seating Planner</p>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete={flow === 'signIn' ? 'current-password' : 'new-password'}
-              placeholder="••••••••"
-              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-            />
-            {flow === 'signUp' && (
-              <p className="text-xs text-gray-400 mt-1">At least 8 characters.</p>
-            )}
+          {/* Tab switcher */}
+          <div className="flex border border-rule rounded-lg p-1 mb-6">
+            <button
+              type="button"
+              onClick={() => { setFlow('signIn'); setError(null); }}
+              className={`flex-1 text-sm py-1.5 rounded-md transition-colors ${
+                flow === 'signIn'
+                  ? 'bg-ink text-bg'
+                  : 'text-ink-faint hover:text-ink-soft'
+              }`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFlow('signUp'); setError(null); }}
+              className={`flex-1 text-sm py-1.5 rounded-md transition-colors ${
+                flow === 'signUp'
+                  ? 'bg-ink text-bg'
+                  : 'text-ink-faint hover:text-ink-soft'
+              }`}
+            >
+              Create account
+            </button>
           </div>
 
-          {/* Error message — clean, compact */}
-          {error && (
-            <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              <span className="mt-px shrink-0">⚠</span>
-              <span>{error}</span>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-soft mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className="app-input w-full text-sm px-3 py-2.5"
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full text-sm py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
-            {loading
-              ? 'Please wait…'
-              : flow === 'signIn' ? 'Sign in' : 'Create account'}
-          </button>
-        </form>
+            <div>
+              <label className="block text-xs font-medium text-ink-soft mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete={flow === 'signIn' ? 'current-password' : 'new-password'}
+                placeholder="••••••••"
+                className="app-input w-full text-sm px-3 py-2.5"
+              />
+              {flow === 'signUp' && (
+                <p className="text-xs text-ink-faint mt-1">At least 8 characters.</p>
+              )}
+            </div>
+
+            {/* Error message — clean, compact */}
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <span className="mt-px shrink-0">⚠</span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary w-full text-sm py-2.5"
+            >
+              {loading
+                ? 'Please wait…'
+                : flow === 'signIn' ? 'Sign in' : 'Create account'}
+            </button>
+          </form>
+        </div>
       </div>
+      <AppFooter />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useMutation } from 'convex/react';
 import { useConvexAuth } from '@convex-dev/auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
+import AppFooter from '../components/AppFooter';
 
 // useSearchParams requires a Suspense boundary in Next.js App Router
 export default function InvitePage() {
@@ -60,7 +61,7 @@ function InviteFlow() {
       <p className="text-red-600 text-sm mb-4">{errorMsg}</p>
       <button
         onClick={() => router.push('/')}
-        className="text-sm text-gray-500 underline"
+        className="text-sm text-ink-faint hover:text-ink-soft underline transition-colors"
       >
         Go to app
       </button>
@@ -70,8 +71,11 @@ function InviteFlow() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4 text-gray-600 text-sm">
-      {children}
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-ink-soft text-sm">
+        {children}
+      </div>
+      <AppFooter />
     </div>
   );
 }
