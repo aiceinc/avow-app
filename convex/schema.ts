@@ -1,50 +1,89 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 /**
- * Avow seating planner — Convex schema
+ * Avow seating planner — Convex schema (Phase 2)
  *
- * Three tables:
- *  - guests:          the pre-seeded guest list (read-only in Phase 1)
- *  - tables:          venue tables placed on the canvas
- *  - seatAssignments: which guest sits in which seat of which table
+ * Auth tables (from @convex-dev/auth):
+ *  - users, sessions, accounts, verificationCodes, authRateLimits
+ *
+ * App tables:
+ *  - workspaces:       one workspace = one wedding being planned
+ *  - workspaceMembers: which users are members of which workspace (1–2 per workspace)
+ *  - guests:           pre-seeded guest list, now scoped to a workspace
+ *  - tables:           venue tables on the canvas, scoped to a workspace
+ *  - seatAssignments:  which guest sits where, scoped to a workspace
+ *  - cursors:          ephemeral live cursor presence, scoped to a workspace
  */
 export default defineSchema({
-  // ── guests ──────────────────────────────────────────────────────────────
-  guests: defineTable({
+  // ── Convex Auth tables (managed by @convex-dev/auth) ─────────────────────
+  ...authTables,
+
+  // ── workspaces ────────────────────────────────────────────────────────────
+  workspaces: defineTable({
     name: v.string(),
-    // which side of the couple this guest belongs to
+    // Shareable invite token — generated on demand, expires after 48h
+    inviteCode: v.optional(v.string()),
+    inviteCodeExpiry: v.optional(v.number()), // Date.now() + 48h
+  }),
+
+  // ── workspaceMembers ──────────────────────────────────────────────────────
+  // Join table: which users belong to which workspace.
+  // Max 2 members per workspace (enforced in mutation layer).
+  workspaceMembers: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"), // from authTables
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_userId", ["userId"])
+    .index("by_workspaceId_and_userId", ["workspaceId", "userId"]),
+
+  // ── guests ────────────────────────────────────────────────────────────────
+  guests: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
     side: v.union(
       v.literal("Partner A"),
       v.literal("Partner B"),
       v.literal("both")
     ),
     dietaryNotes: v.optional(v.string()),
-  }),
+  }).index("by_workspaceId", ["workspaceId"]),
 
-  // ── tables ───────────────────────────────────────────────────────────────
+  // ── tables ────────────────────────────────────────────────────────────────
   tables: defineTable({
+    workspaceId: v.id("workspaces"),
     shape: v.union(v.literal("round"), v.literal("rectangular")),
     seatCount: v.number(),
-    // canvas position and orientation
     x: v.number(),
     y: v.number(),
-    rotation: v.number(), // degrees
+    rotation: v.number(),
     label: v.optional(v.string()),
-  }),
+  }).index("by_workspaceId", ["workspaceId"]),
 
   // ── seatAssignments ───────────────────────────────────────────────────────
-  // One row per occupied seat. A guest can occupy at most one seat;
-  // a seat can hold at most one guest — enforced in the mutation layer.
   seatAssignments: defineTable({
+    workspaceId: v.id("workspaces"),
     tableId: v.id("tables"),
-    seatIndex: v.number(), // 0-based index around the table edge
+    seatIndex: v.number(),
     guestId: v.id("guests"),
   })
-    // look up all assignments for a given table (for rendering)
+    .index("by_workspaceId", ["workspaceId"])
     .index("by_tableId", ["tableId"])
-    // look up where a specific guest is sitting (for uniqueness checks)
     .index("by_guestId", ["guestId"])
-    // check whether a specific seat is already taken
     .index("by_tableId_and_seatIndex", ["tableId", "seatIndex"]),
+
+  // ── cursors ───────────────────────────────────────────────────────────────
+  // High-churn ephemeral presence. One row per active user per workspace.
+  cursors: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.string(),   // real user ID once auth is wired; kept string for flexibility
+    label: v.string(),
+    x: v.number(),
+    y: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_workspaceId_and_userId", ["workspaceId", "userId"]),
 });

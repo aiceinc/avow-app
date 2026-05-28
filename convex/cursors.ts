@@ -1,0 +1,89 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { assertMember } from "./lib";
+
+/**
+ * cursors.ts — ephemeral presence / live cursor broadcasting
+ *
+ * Now workspace-scoped. One row per active user per workspace.
+ * The userId is now the real authenticated user ID (subject from JWT).
+ */
+
+// ── list ─────────────────────────────────────────────────────────────────────
+
+/** Returns all cursor rows for a workspace. */
+export const list = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
+    return await ctx.db
+      .query("cursors")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(20);
+  },
+});
+
+// ── upsert ────────────────────────────────────────────────────────────────────
+
+/** Called at ~10 Hz per active user. Upserts the cursor row. */
+export const upsert = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    userId:      v.string(),
+    label:       v.string(),
+    x:           v.number(),
+    y:           v.number(),
+    updatedAt:   v.number(),
+  },
+  handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
+
+    const existing = await ctx.db
+      .query("cursors")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("userId", args.userId)
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        x:         args.x,
+        y:         args.y,
+        updatedAt: args.updatedAt,
+        label:     args.label,
+      });
+    } else {
+      await ctx.db.insert("cursors", {
+        workspaceId: args.workspaceId,
+        userId:      args.userId,
+        label:       args.label,
+        x:           args.x,
+        y:           args.y,
+        updatedAt:   args.updatedAt,
+      });
+    }
+  },
+});
+
+// ── remove ────────────────────────────────────────────────────────────────────
+
+/** Called on unmount to clean up this user's cursor row. */
+export const remove = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    userId:      v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Best-effort — don't throw if not a member (component unmounting after logout)
+    const existing = await ctx.db
+      .query("cursors")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("userId", args.userId)
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    }
+  },
+});

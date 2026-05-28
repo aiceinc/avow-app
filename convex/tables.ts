@@ -1,15 +1,21 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { assertMember } from "./lib";
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /**
- * Return all tables on the canvas.
+ * Return all tables in a workspace.
  */
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("tables").order("asc").take(200);
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
+    return await ctx.db
+      .query("tables")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
+      .order("asc")
+      .take(200);
   },
 });
 
@@ -20,6 +26,7 @@ export const list = query({
  */
 export const create = mutation({
   args: {
+    workspaceId: v.id("workspaces"),
     shape: v.union(v.literal("round"), v.literal("rectangular")),
     seatCount: v.number(),
     x: v.number(),
@@ -28,6 +35,7 @@ export const create = mutation({
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
     return await ctx.db.insert("tables", args);
   },
 });
@@ -37,6 +45,7 @@ export const create = mutation({
  */
 export const createBatch = mutation({
   args: {
+    workspaceId: v.id("workspaces"),
     tables: v.array(
       v.object({
         shape: v.union(v.literal("round"), v.literal("rectangular")),
@@ -49,9 +58,13 @@ export const createBatch = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
     const ids: string[] = [];
     for (const table of args.tables) {
-      const id = await ctx.db.insert("tables", table);
+      const id = await ctx.db.insert("tables", {
+        workspaceId: args.workspaceId,
+        ...table,
+      });
       ids.push(id);
     }
     return ids;
@@ -60,7 +73,7 @@ export const createBatch = mutation({
 
 /**
  * Update a table's position, rotation, shape, seat count, or label.
- * Only the fields provided are changed (shallow patch).
+ * Verifies the table belongs to a workspace the caller is a member of.
  */
 export const update = mutation({
   args: {
@@ -73,6 +86,10 @@ export const update = mutation({
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const table = await ctx.db.get(args.tableId);
+    if (!table) throw new Error("Table not found");
+    await assertMember(ctx, table.workspaceId);
+
     const { tableId, ...fields } = args;
     await ctx.db.patch(tableId, fields);
   },
@@ -80,43 +97,49 @@ export const update = mutation({
 
 /**
  * Delete a table and all its seat assignments.
- * Must remove assignments first — they hold foreign keys to the table.
  */
 export const remove = mutation({
   args: { tableId: v.id("tables") },
   handler: async (ctx, args) => {
-    // Delete all seat assignments for this table
+    const table = await ctx.db.get(args.tableId);
+    if (!table) throw new Error("Table not found");
+    await assertMember(ctx, table.workspaceId);
+
+    // Delete all seat assignments for this table first
     const assignments = await ctx.db
       .query("seatAssignments")
       .withIndex("by_tableId", (q) => q.eq("tableId", args.tableId))
       .take(500);
 
-    for (const assignment of assignments) {
-      await ctx.db.delete(assignment._id);
+    for (const a of assignments) {
+      await ctx.db.delete(a._id);
     }
 
-    // Delete the table itself
     await ctx.db.delete(args.tableId);
   },
 });
 
 /**
- * Remove all tables and all seat assignments from the canvas.
+ * Remove all tables and seat assignments in a workspace.
  * Called before applying a layout template.
  */
 export const clearAll = mutation({
-  args: {},
-  handler: async (ctx) => {
-    // Delete all seat assignments first
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
+
     const assignments = await ctx.db
       .query("seatAssignments")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
       .take(500);
     for (const a of assignments) {
       await ctx.db.delete(a._id);
     }
 
-    // Delete all tables
-    const tables = await ctx.db.query("tables").take(500);
+    const tables = await ctx.db
+      .query("tables")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
+      .take(500);
     for (const t of tables) {
       await ctx.db.delete(t._id);
     }
