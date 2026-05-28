@@ -60,6 +60,11 @@ export default defineSchema({
     y: v.number(),
     rotation: v.number(),
     label: v.optional(v.string()),
+    // Optional per-table dimensions (set when a table is resized).
+    // When absent, the canvas falls back to the default constants in geometry.ts.
+    radius: v.optional(v.number()), // round tables
+    width: v.optional(v.number()),  // rectangular tables
+    height: v.optional(v.number()), // rectangular tables
   }).index("by_workspaceId", ["workspaceId"]),
 
   // ── seatAssignments ───────────────────────────────────────────────────────

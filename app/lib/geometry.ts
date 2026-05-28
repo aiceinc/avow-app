@@ -7,28 +7,61 @@
  *
  * All positions are in canvas pixels. Table coordinates (x, y) are the
  * centre of the table shape.
+ *
+ * Tables may carry their own dimensions (radius / width / height) once they've
+ * been resized. When those are absent we fall back to the default constants.
  */
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
-export const TABLE_RADIUS = 58;   // round table radius (px)
-export const TABLE_WIDTH  = 170;  // rectangular table width (px)
-export const TABLE_HEIGHT = 85;   // rectangular table height (px)
+export const TABLE_RADIUS = 58;   // default round table radius (px)
+export const TABLE_WIDTH  = 170;  // default rectangular table width (px)
+export const TABLE_HEIGHT = 85;   // default rectangular table height (px)
 export const SEAT_RADIUS  = 14;   // radius of each seat circle (px)
 export const SEAT_GAP     = 6;    // gap between table edge and seat centre (px)
 
+// ── Resize clamps ───────────────────────────────────────────────────────────
+export const MIN_RADIUS = 34;
+export const MAX_RADIUS = 150;
+export const MIN_RECT_W = 90;
+export const MAX_RECT_W = 460;
+export const MIN_RECT_H = 50;
+export const MAX_RECT_H = 320;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export type TableDims = {
+  radius?: number;
+  width?: number;
+  height?: number;
+};
 
 type TableShape = {
   shape: 'round' | 'rectangular';
   seatCount: number;
-};
+} & TableDims;
 
 type TableWithPosition = TableShape & {
   x: number;
   y: number;
   rotation: number; // degrees
 };
+
+// ── Effective-dimension helpers ─────────────────────────────────────────────
+
+export function getRadius(dims?: TableDims): number {
+  return dims?.radius ?? TABLE_RADIUS;
+}
+export function getWidth(dims?: TableDims): number {
+  return dims?.width ?? TABLE_WIDTH;
+}
+export function getHeight(dims?: TableDims): number {
+  return dims?.height ?? TABLE_HEIGHT;
+}
+
+export function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
 
 // ── Core helpers ──────────────────────────────────────────────────────────────
 
@@ -40,14 +73,18 @@ type TableWithPosition = TableShape & {
  *
  * Rectangular tables: seats split evenly across the top and bottom long edges.
  * Top half gets the extra seat when seatCount is odd.
+ *
+ * `dims` overrides the default size (used for resized tables and for live
+ * preview while a resize drag is in progress).
  */
 export function getSeatLocalPosition(
   shape: 'round' | 'rectangular',
   seatCount: number,
-  seatIndex: number
+  seatIndex: number,
+  dims?: TableDims
 ): { x: number; y: number } {
   if (shape === 'round') {
-    const dist  = TABLE_RADIUS + SEAT_GAP + SEAT_RADIUS;
+    const dist  = getRadius(dims) + SEAT_GAP + SEAT_RADIUS;
     const angle = ((2 * Math.PI * seatIndex) / seatCount) - Math.PI / 2;
     return {
       x: Math.cos(angle) * dist,
@@ -56,20 +93,22 @@ export function getSeatLocalPosition(
   }
 
   // Rectangular ─────────────────────────────────────────────────────────────
+  const w = getWidth(dims);
+  const h = getHeight(dims);
   const topCount = Math.ceil(seatCount / 2);
   const botCount = Math.floor(seatCount / 2);
-  const yTop = -(TABLE_HEIGHT / 2 + SEAT_GAP + SEAT_RADIUS);
-  const yBot =   TABLE_HEIGHT / 2 + SEAT_GAP + SEAT_RADIUS;
+  const yTop = -(h / 2 + SEAT_GAP + SEAT_RADIUS);
+  const yBot =   h / 2 + SEAT_GAP + SEAT_RADIUS;
 
   if (seatIndex < topCount) {
     return {
-      x: -TABLE_WIDTH / 2 + (TABLE_WIDTH / (topCount + 1)) * (seatIndex + 1),
+      x: -w / 2 + (w / (topCount + 1)) * (seatIndex + 1),
       y: yTop,
     };
   } else {
     const i = seatIndex - topCount;
     return {
-      x: -TABLE_WIDTH / 2 + (TABLE_WIDTH / (botCount + 1)) * (i + 1),
+      x: -w / 2 + (w / (botCount + 1)) * (i + 1),
       y: yBot,
     };
   }
@@ -87,14 +126,14 @@ function rotatePoint(x: number, y: number, deg: number): { x: number; y: number 
 }
 
 /**
- * Absolute canvas position of a seat, accounting for the table's position
- * and rotation.
+ * Absolute canvas position of a seat, accounting for the table's position,
+ * size, and rotation.
  */
 export function getSeatAbsolutePosition(
   table: TableWithPosition,
   seatIndex: number
 ): { x: number; y: number } {
-  const local   = getSeatLocalPosition(table.shape, table.seatCount, seatIndex);
+  const local   = getSeatLocalPosition(table.shape, table.seatCount, seatIndex, table);
   const rotated = rotatePoint(local.x, local.y, table.rotation);
   return { x: table.x + rotated.x, y: table.y + rotated.y };
 }

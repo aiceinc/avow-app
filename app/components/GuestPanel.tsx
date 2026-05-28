@@ -13,7 +13,7 @@
  * read it when the guest is released over a seat.
  */
 
-import { Doc, Id } from '@/convex/_generated/dataModel';
+import { Doc } from '@/convex/_generated/dataModel';
 
 type Props = {
   guests:          Doc<'guests'>[];

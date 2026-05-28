@@ -84,6 +84,9 @@ export const update = mutation({
     y: v.optional(v.number()),
     rotation: v.optional(v.number()),
     label: v.optional(v.string()),
+    radius: v.optional(v.number()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const table = await ctx.db.get(args.tableId);

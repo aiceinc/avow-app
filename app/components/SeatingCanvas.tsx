@@ -21,12 +21,15 @@ import { useConvexAuth } from '@convex-dev/auth/react';
 import { api } from '@/convex/_generated/api';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import {
-  TABLE_RADIUS,
-  TABLE_WIDTH,
-  TABLE_HEIGHT,
   SEAT_RADIUS,
+  MIN_RADIUS, MAX_RADIUS,
+  MIN_RECT_W, MAX_RECT_W,
+  MIN_RECT_H, MAX_RECT_H,
+  getRadius, getWidth, getHeight,
+  clamp,
   getSeatLocalPosition,
   findNearestSeat,
+  type TableDims,
 } from '@/app/lib/geometry';
 
 // ── Colour palette ─────────────────────────────────────────────────────────────
@@ -35,6 +38,7 @@ const C = {
   tableStroke:        '#d4b896',
   tableStrokeSelect:  '#b08968',
   tableStrokeRotate:  '#3b82f6',
+  tableStrokeResize:  '#b08968',
   seatEmpty:          '#ffffff',
   seatEmptyStroke:    '#d1d5db',
   seatOccupied:       '#b08968',
@@ -52,6 +56,15 @@ const CURSOR_THROTTLE_MS = 80;
 /** Angle in degrees from canvas point (cx,cy) to mouse (mx,my). */
 function getAngleDeg(cx: number, cy: number, mx: number, my: number): number {
   return Math.atan2(my - cy, mx - cx) * (180 / Math.PI);
+}
+
+/** Rotate a world-space delta into the table's local (pre-rotation) frame. */
+function toLocalFrame(dx: number, dy: number, rotationDeg: number): { x: number; y: number } {
+  const rad = (-rotationDeg * Math.PI) / 180;
+  return {
+    x: dx * Math.cos(rad) - dy * Math.sin(rad),
+    y: dx * Math.sin(rad) + dy * Math.cos(rad),
+  };
 }
 
 // ── RemoteCursor ───────────────────────────────────────────────────────────────
@@ -85,7 +98,7 @@ function RemoteCursor({ x, y, label, color }: {
 
 function TableNode({
   table, tableAssignments, guestMap,
-  isSelected, isRotating, rotationOverride,
+  isSelected, isRotating, isResizing, rotationOverride, dims,
   onSelect, onMoveEnd, onDragMove, onSeatClick,
 }: {
   table:             Doc<'tables'>;
@@ -93,7 +106,9 @@ function TableNode({
   guestMap:          Map<string, Doc<'guests'>>;
   isSelected:        boolean;
   isRotating:        boolean;
+  isResizing:        boolean;
   rotationOverride?: number;
+  dims:              TableDims;
   onSelect:          () => void;
   onMoveEnd:         (x: number, y: number) => void;
   onDragMove?:       (x: number, y: number) => void;
@@ -102,17 +117,30 @@ function TableNode({
   const seatMap = new Map<number, Doc<'seatAssignments'>>();
   for (const a of tableAssignments) seatMap.set(a.seatIndex, a);
 
-  const rotation   = rotationOverride ?? table.rotation;
-  const strokeColor = isRotating ? C.tableStrokeRotate : isSelected ? C.tableStrokeSelect : C.tableStroke;
-  const strokeWidth = (isRotating || isSelected) ? 2 : 1.5;
-  const dash        = isRotating ? ([5, 3] as number[]) : undefined;
+  const rotation    = rotationOverride ?? table.rotation;
+  const active      = isRotating || isResizing;
+  const strokeColor = isRotating ? C.tableStrokeRotate
+                    : isResizing ? C.tableStrokeResize
+                    : isSelected ? C.tableStrokeSelect
+                    : C.tableStroke;
+  const strokeWidth = (active || isSelected) ? 2 : 1.5;
+  const dash        = active ? ([5, 3] as number[]) : undefined;
+
+  const r = getRadius(dims);
+  const w = getWidth(dims);
+  const h = getHeight(dims);
+
+  // Edge-midpoint handle positions, in the table's local (pre-rotation) frame.
+  const handlePoints = table.shape === 'round'
+    ? [{ x: r, y: 0 }, { x: -r, y: 0 }, { x: 0, y: -r }, { x: 0, y: r }]
+    : [{ x: w / 2, y: 0 }, { x: -w / 2, y: 0 }, { x: 0, y: -h / 2 }, { x: 0, y: h / 2 }];
 
   return (
     <Group
       x={table.x}
       y={table.y}
       rotation={rotation}
-      draggable={!isRotating}
+      draggable={!isRotating && !isResizing}
       onClick={e => { e.cancelBubble = true; onSelect(); }}
       onDragMove={e => onDragMove?.(e.target.x(), e.target.y())}
       onDragEnd={e => onMoveEnd(e.target.x(), e.target.y())}
@@ -120,13 +148,13 @@ function TableNode({
       {/* Table body */}
       {table.shape === 'round' ? (
         <Circle
-          radius={TABLE_RADIUS}
+          radius={r}
           fill={C.tableFill} stroke={strokeColor} strokeWidth={strokeWidth} dash={dash}
         />
       ) : (
         <Rect
-          x={-TABLE_WIDTH / 2} y={-TABLE_HEIGHT / 2}
-          width={TABLE_WIDTH} height={TABLE_HEIGHT}
+          x={-w / 2} y={-h / 2}
+          width={w} height={h}
           fill={C.tableFill} stroke={strokeColor} strokeWidth={strokeWidth}
           cornerRadius={5} dash={dash}
         />
@@ -143,7 +171,7 @@ function TableNode({
 
       {/* Seats */}
       {Array.from({ length: table.seatCount }, (_, i) => {
-        const local      = getSeatLocalPosition(table.shape, table.seatCount, i);
+        const local      = getSeatLocalPosition(table.shape, table.seatCount, i, dims);
         const assignment = seatMap.get(i);
         const guest      = assignment ? guestMap.get(assignment.guestId) : undefined;
         return (
@@ -168,6 +196,16 @@ function TableNode({
           </Group>
         );
       })}
+
+      {/* Resize handles — drag detection happens in the container mousedown handler */}
+      {isResizing && handlePoints.map((p, idx) => (
+        <Rect
+          key={`handle-${idx}`}
+          x={p.x - 5} y={p.y - 5} width={10} height={10}
+          fill="#ffffff" stroke={C.tableStrokeResize} strokeWidth={2}
+          cornerRadius={2} listening={false}
+        />
+      ))}
     </Group>
   );
 }
@@ -181,8 +219,8 @@ function TableNode({
  */
 function FloatingEditPanel({
   table, liveDragX, liveDragY, canvasW, canvasH,
-  label, seatCount, rotateMode,
-  onLabel, onSeatCount, onToggleRotate, onCommitLabel, onCommitSeatCount, onDelete, onClose,
+  label, seatCount, rotateMode, resizeMode,
+  onLabel, onSeatCount, onToggleRotate, onToggleResize, onCommitLabel, onCommitSeatCount, onDelete, onClose,
 }: {
   table:              Doc<'tables'>;
   liveDragX?:         number;
@@ -192,16 +230,18 @@ function FloatingEditPanel({
   label:              string;
   seatCount:          number;
   rotateMode:         boolean;
+  resizeMode:         boolean;
   onLabel:            (v: string) => void;
   onSeatCount:        (v: number) => void;
   onToggleRotate:     () => void;
+  onToggleResize:     () => void;
   onCommitLabel:      () => void;
   onCommitSeatCount:  (n: number) => void;
   onDelete:           () => void;
   onClose:            () => void;
 }) {
   const POPUP_W = 165;
-  const POPUP_H = 168; // approximate height for clamping
+  const POPUP_H = 210; // approximate height for clamping
 
   // Follow the table during a drag
   const cx = liveDragX ?? table.x;
@@ -210,8 +250,8 @@ function FloatingEditPanel({
   // Anchor just to the right of the table, vertically centred on it
   const gap     = 6;
   const anchorX = table.shape === 'round'
-    ? cx + TABLE_RADIUS + gap
-    : cx + TABLE_WIDTH / 2 + gap;
+    ? cx + getRadius(table) + gap
+    : cx + getWidth(table) / 2 + gap;
 
   const left = Math.min(Math.max(anchorX, 8),           canvasW - POPUP_W - 8);
   const top  = Math.min(Math.max(cy - POPUP_H / 2, 8),  canvasH - POPUP_H - 8);
@@ -265,13 +305,25 @@ function FloatingEditPanel({
       {/* Rotate toggle — blue when active signals rotate mode (matches crosshair) */}
       <button
         onClick={onToggleRotate}
-        className={`w-full text-xs py-1.5 rounded-lg mb-2.5 border transition-colors ${
+        className={`w-full text-xs py-1.5 rounded-lg mb-2 border transition-colors ${
           rotateMode
             ? 'bg-blue-600 border-blue-600 text-white'
             : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
         }`}
       >
         ↺  Rotate
+      </button>
+
+      {/* Resize toggle — gold when active (matches the gold drag handles) */}
+      <button
+        onClick={onToggleResize}
+        className={`w-full text-xs py-1.5 rounded-lg mb-2.5 border transition-colors ${
+          resizeMode
+            ? 'bg-accent border-accent text-white'
+            : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
+        }`}
+      >
+        ⤡  {table.shape === 'round' ? 'Resize' : 'Resize sides'}
       </button>
 
       {/* Delete */}
@@ -352,24 +404,49 @@ export default function SeatingCanvas({
   const [liveRotation, setLiveRotation] = useState<number | null>(null);
   const [liveDragPos,  setLiveDragPos]  = useState<{ x: number; y: number } | null>(null);
 
+  // ── Resize-mode state ─────────────────────────────────────────────────────
+  const [resizeMode, setResizeMode] = useState(false);
+  const [liveSize,   setLiveSize]   = useState<TableDims | null>(null);
+
   // Stable refs so window listeners don't go stale
   const rotateRef        = useRef<{ startAngle: number; baseRotation: number } | null>(null);
+  const resizeRef        = useRef<{ round: true } | { edge: 'left' | 'right' | 'top' | 'bottom' } | null>(null);
   const selectedTableRef = useRef(selectedTable);
   const liveRotationRef  = useRef(liveRotation);
+  const liveSizeRef      = useRef(liveSize);
   useEffect(() => { selectedTableRef.current = selectedTable; },  [selectedTable]);
   useEffect(() => { liveRotationRef.current  = liveRotation; },   [liveRotation]);
+  useEffect(() => { liveSizeRef.current      = liveSize; },       [liveSize]);
 
-  // Reset rotate state whenever the selected table changes
+  // Reset rotate + resize state whenever the selected table changes
   useEffect(() => {
     setRotateMode(false);
+    setResizeMode(false);
     setLiveRotation(null);
+    setLiveSize(null);
     setLiveDragPos(null);
     rotateRef.current = null;
+    resizeRef.current = null;
   }, [selectedTableId]);
 
-  // ── Convex table update (also used by rotation commit) ────────────────────
+  // ── Convex table update (used by rotation + resize commits) ───────────────
 
   const updateTable = useMutation(api.tables.update);
+
+  // Rotate and resize are mutually exclusive modes.
+  const toggleRotate = useCallback(() => {
+    setResizeMode(false);
+    setLiveSize(null);
+    resizeRef.current = null;
+    setRotateMode(r => !r);
+  }, []);
+
+  const toggleResize = useCallback(() => {
+    setRotateMode(false);
+    setLiveRotation(null);
+    rotateRef.current = null;
+    setResizeMode(r => !r);
+  }, []);
 
   // Window-level mouse handlers for rotation drag (capture even over the popup)
   useEffect(() => {
@@ -406,28 +483,119 @@ export default function SeatingCanvas({
     };
   }, [rotateMode, updateTable]);
 
-  // Start a rotation drag when the user mousedowns on/near the selected table
+  // Window-level mouse handlers for a resize drag
+  useEffect(() => {
+    if (!resizeMode) return;
+
+    function onMove(e: MouseEvent) {
+      const table = selectedTableRef.current;
+      if (!resizeRef.current || !table) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const local = toLocalFrame(
+        e.clientX - rect.left - table.x,
+        e.clientY - rect.top - table.y,
+        table.rotation
+      );
+
+      let next: TableDims;
+      if ('round' in resizeRef.current) {
+        next = { radius: clamp(Math.hypot(local.x, local.y), MIN_RADIUS, MAX_RADIUS) };
+      } else {
+        const prev = liveSizeRef.current ?? {};
+        const edge = resizeRef.current.edge;
+        if (edge === 'left' || edge === 'right') {
+          next = { width: clamp(Math.abs(local.x) * 2, MIN_RECT_W, MAX_RECT_W), height: prev.height ?? getHeight(table) };
+        } else {
+          next = { width: prev.width ?? getWidth(table), height: clamp(Math.abs(local.y) * 2, MIN_RECT_H, MAX_RECT_H) };
+        }
+      }
+      // Keep the ref in sync synchronously so the mouseup commit always sees the
+      // latest size, even if React hasn't flushed the state-sync effect yet.
+      liveSizeRef.current = next;
+      setLiveSize(next);
+    }
+
+    function onUp() {
+      if (!resizeRef.current) return;
+      resizeRef.current = null;
+      const table = selectedTableRef.current;
+      const size  = liveSizeRef.current;
+      if (table && size) {
+        if (table.shape === 'round' && size.radius != null) {
+          updateTable({ tableId: table._id, radius: Math.round(size.radius) });
+        } else if (table.shape === 'rectangular') {
+          updateTable({
+            tableId: table._id,
+            width:  Math.round(size.width  ?? getWidth(table)),
+            height: Math.round(size.height ?? getHeight(table)),
+          });
+        }
+      }
+    }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup',   onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup',   onUp);
+    };
+  }, [resizeMode, updateTable]);
+
+  // Start a rotation or resize drag when the user mousedowns on/near the table
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!rotateMode || !selectedTable) return;
+      if (!selectedTable) return;
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const dx = mx - selectedTable.x;
-      const dy = my - selectedTable.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const hitR = selectedTable.shape === 'round'
-        ? TABLE_RADIUS + SEAT_RADIUS + 10
-        : Math.sqrt((TABLE_WIDTH / 2) ** 2 + (TABLE_HEIGHT / 2) ** 2) + 10;
-      if (dist < hitR) {
-        const startAngle   = getAngleDeg(selectedTable.x, selectedTable.y, mx, my);
-        const baseRotation = liveRotationRef.current ?? selectedTable.rotation;
-        rotateRef.current  = { startAngle, baseRotation };
-        e.preventDefault(); // avoid text selection while dragging
+
+      if (rotateMode) {
+        const dist = Math.hypot(mx - selectedTable.x, my - selectedTable.y);
+        const hitR = selectedTable.shape === 'round'
+          ? getRadius(selectedTable) + SEAT_RADIUS + 10
+          : Math.hypot(getWidth(selectedTable) / 2, getHeight(selectedTable) / 2) + 10;
+        if (dist < hitR) {
+          const startAngle   = getAngleDeg(selectedTable.x, selectedTable.y, mx, my);
+          const baseRotation = liveRotationRef.current ?? selectedTable.rotation;
+          rotateRef.current  = { startAngle, baseRotation };
+          e.preventDefault(); // avoid text selection while dragging
+        }
+        return;
+      }
+
+      if (resizeMode) {
+        const local = toLocalFrame(mx - selectedTable.x, my - selectedTable.y, selectedTable.rotation);
+        if (selectedTable.shape === 'round') {
+          const r = getRadius(selectedTable);
+          if (Math.hypot(local.x, local.y) < r + SEAT_RADIUS + 16) {
+            resizeRef.current = { round: true };
+            e.preventDefault();
+          }
+        } else {
+          const w = getWidth(selectedTable);
+          const h = getHeight(selectedTable);
+          const handles = [
+            { edge: 'right'  as const, x:  w / 2, y: 0 },
+            { edge: 'left'   as const, x: -w / 2, y: 0 },
+            { edge: 'top'    as const, x: 0, y: -h / 2 },
+            { edge: 'bottom' as const, x: 0, y:  h / 2 },
+          ];
+          let chosen: 'left' | 'right' | 'top' | 'bottom' | null = null;
+          let bestD = 20; // hit tolerance (px)
+          for (const hpt of handles) {
+            const d = Math.hypot(local.x - hpt.x, local.y - hpt.y);
+            if (d < bestD) { bestD = d; chosen = hpt.edge; }
+          }
+          if (chosen) {
+            resizeRef.current = { edge: chosen };
+            e.preventDefault();
+          }
+        }
       }
     },
-    [rotateMode, selectedTable]
+    [rotateMode, resizeMode, selectedTable]
   );
 
   // ── Build lookup maps ─────────────────────────────────────────────────────
@@ -513,13 +681,29 @@ export default function SeatingCanvas({
 
   const CROSS_EXTENT = 76; // how far the crosshair lines extend (px)
 
+  // Effective dimensions for a table — applies the live resize preview to the
+  // selected table while a resize drag is in progress.
+  const dimsFor = (table: Doc<'tables'>): TableDims => {
+    if (selectedTableId === table._id && liveSize) {
+      return {
+        radius: liveSize.radius ?? table.radius,
+        width:  liveSize.width  ?? table.width,
+        height: liveSize.height ?? table.height,
+      };
+    }
+    return { radius: table.radius, width: table.width, height: table.height };
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div
       ref={containerRef}
       className="flex-1 overflow-hidden relative"
-      style={{ background: C.canvasBg, cursor: rotateMode ? 'crosshair' : 'default' }}
+      style={{
+        background: C.canvasBg,
+        cursor: rotateMode ? 'crosshair' : resizeMode ? 'nwse-resize' : 'default',
+      }}
       onDragOver={e => e.preventDefault()}
       onDrop={handleDrop}
       onMouseMove={handleMouseMove}
@@ -556,6 +740,8 @@ export default function SeatingCanvas({
               guestMap={guestMap as Map<string, Doc<'guests'>>}
               isSelected={selectedTableId === table._id}
               isRotating={rotateMode && selectedTableId === table._id}
+              isResizing={resizeMode && selectedTableId === table._id}
+              dims={dimsFor(table)}
               rotationOverride={
                 selectedTableId === table._id && liveRotation !== null
                   ? liveRotation
@@ -601,8 +787,8 @@ export default function SeatingCanvas({
               <Circle
                 radius={
                   selectedTable.shape === 'round'
-                    ? TABLE_RADIUS + 18
-                    : Math.sqrt((TABLE_WIDTH / 2) ** 2 + (TABLE_HEIGHT / 2) ** 2) + 14
+                    ? getRadius(selectedTable) + 18
+                    : Math.hypot(getWidth(selectedTable) / 2, getHeight(selectedTable) / 2) + 14
                 }
                 stroke="#3b82f6" strokeWidth={1} dash={[5, 4]} fill="transparent"
               />
@@ -634,9 +820,11 @@ export default function SeatingCanvas({
           label={editLabel}
           seatCount={editSeatCount}
           rotateMode={rotateMode}
+          resizeMode={resizeMode}
           onLabel={onEditLabel}
           onSeatCount={onEditSeatCount}
-          onToggleRotate={() => setRotateMode(r => !r)}
+          onToggleRotate={toggleRotate}
+          onToggleResize={toggleResize}
           onCommitLabel={onCommitLabel}
           onCommitSeatCount={onCommitSeatCount}
           onDelete={onDeleteSelected}

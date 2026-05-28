@@ -259,6 +259,20 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
     });
   }
 
+  function handleResetAll() {
+    if (tables.length === 0) return;
+    showConfirm(
+      'Reset the layout? This removes all tables and their seat assignments.',
+      async () => {
+        closeModal();
+        setSelectedTableId(null);
+        await clearAll({ workspaceId });
+      },
+      'Reset all',
+      true
+    );
+  }
+
   function handleApplyTemplate(key: TemplateKey) {
     setTemplateMenuOpen(false);
     const apply = async () => {
@@ -353,53 +367,13 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
           {workspace?.name ?? 'Seating Planner'}
         </span>
 
-        <button
-          onClick={() => handleAddTable('round')}
-          className="btn btn-primary text-sm px-3 py-1.5"
-        >
-          + Round Table
-        </button>
-
-        <button
-          onClick={() => handleAddTable('rectangular')}
-          className="btn btn-primary text-sm px-3 py-1.5"
-        >
-          + Rect Table
-        </button>
-
-        {/* Template picker */}
-        <div className="relative" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => setTemplateMenuOpen(o => !o)}
-            className="btn btn-secondary text-sm px-3 py-1.5"
-          >
-            Use Template ▾
-          </button>
-          {templateMenuOpen && (
-            <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden">
-              {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(
-                ([key, tmpl]) => (
-                  <button
-                    key={key}
-                    onClick={() => handleApplyTemplate(key)}
-                    className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors"
-                  >
-                    <div className="text-sm text-ink">{tmpl.label}</div>
-                    <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
-                  </button>
-                )
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Invite */}
         {!inviteCode ? (
           <button
             onClick={handleGenerateInvite}
             className="btn btn-secondary text-sm px-3 py-1.5"
           >
-            Invite partner
+            Invite your partner
           </button>
         ) : (
           <div className="flex items-center gap-1.5">
@@ -431,8 +405,68 @@ function Planner({ workspaceId }: { workspaceId: Id<'workspaces'> }) {
         </div>
       </div>
 
-      {/* ── Canvas + guest panel ─────────────────────────────────────────────── */}
+      {/* ── Sidebar + canvas + guest panel ───────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
+
+        {/* Left sidebar — table tools */}
+        <div className="w-44 border-r border-rule bg-bg/60 flex flex-col shrink-0 p-3">
+          <p className="text-xs font-medium text-ink-faint mb-2 px-1">Add tables</p>
+
+          <button
+            onClick={() => handleAddTable('round')}
+            className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2"
+          >
+            Add
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </button>
+
+          <button
+            onClick={() => handleAddTable('rectangular')}
+            className="btn btn-secondary w-full text-sm px-3 py-2 mb-3 flex items-center justify-center gap-2"
+          >
+            Add
+            <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+              <rect x="1" y="1.5" width="16" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </button>
+
+          {/* Template picker */}
+          <div className="relative" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setTemplateMenuOpen(o => !o)}
+              className="btn btn-secondary w-full text-sm px-3 py-2"
+            >
+              Use Template ▾
+            </button>
+            {templateMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden">
+                {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(
+                  ([key, tmpl]) => (
+                    <button
+                      key={key}
+                      onClick={() => handleApplyTemplate(key)}
+                      className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors"
+                    >
+                      <div className="text-sm text-ink">{tmpl.label}</div>
+                      <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Reset all — pinned to the bottom */}
+          <button
+            onClick={handleResetAll}
+            className="btn btn-danger w-full text-sm px-3 py-2 mt-auto"
+          >
+            Reset all
+          </button>
+        </div>
+
         <SeatingCanvas
           workspaceId={workspaceId}
           tables={tables}
