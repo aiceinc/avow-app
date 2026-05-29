@@ -16,6 +16,7 @@ import type * as http from "../http.js";
 import type * as lib from "../lib.js";
 import type * as seatAssignments from "../seatAssignments.js";
 import type * as tables from "../tables.js";
+import type * as timeline from "../timeline.js";
 import type * as vendors from "../vendors.js";
 import type * as workspaces from "../workspaces.js";
 
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   lib: typeof lib;
   seatAssignments: typeof seatAssignments;
   tables: typeof tables;
+  timeline: typeof timeline;
   vendors: typeof vendors;
   workspaces: typeof workspaces;
 }>;

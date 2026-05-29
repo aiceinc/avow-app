@@ -168,6 +168,24 @@ export default defineSchema({
     .index("by_workspaceId", ["workspaceId"])
     .index("by_categoryId", ["categoryId"]),
 
+  // ── Day-of Timeline (v1.5.0) ──────────────────────────────────────────────
+  // A time-ordered run-of-show for the wedding day. Single-day, time-of-day
+  // centric: `time` is minutes-from-midnight (0–1439), so chronological sort is
+  // a plain numeric sort and there's no date/timezone to model. vendorId is an
+  // optional FK reusing the Vendors module; responsibleParty stays free text
+  // (no separate people/roles table in v1).
+  timelineItems: defineTable({
+    workspaceId: v.id("workspaces"),
+    time: v.number(),                 // minutes from midnight (0–1439)
+    title: v.string(),
+    location: v.optional(v.string()),
+    vendorId: v.optional(v.id("vendors")),
+    responsibleParty: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_vendorId", ["vendorId"]),
+
   // ── cursors ───────────────────────────────────────────────────────────────
   // High-churn ephemeral presence. One row per active user per workspace.
   cursors: defineTable({

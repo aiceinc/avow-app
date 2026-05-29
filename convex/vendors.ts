@@ -257,12 +257,23 @@ export const removeVendor = mutation({
     if (!vendor) throw new Error("Vendor not found");
     await assertMember(ctx, vendor.workspaceId);
 
+    // Budget line items: clear the FK but preserve the name as legacy text so
+    // the budget row still displays something meaningful.
     const linkedItems = await ctx.db
       .query("budgetLineItems")
       .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId))
       .take(500);
     for (const item of linkedItems) {
       await ctx.db.patch(item._id, { vendorId: undefined, vendor: vendor.name });
+    }
+
+    // Timeline items: just clear the FK (no legacy free-text field to honor).
+    const linkedTimeline = await ctx.db
+      .query("timelineItems")
+      .withIndex("by_vendorId", (q) => q.eq("vendorId", args.vendorId))
+      .take(500);
+    for (const item of linkedTimeline) {
+      await ctx.db.patch(item._id, { vendorId: undefined });
     }
 
     await ctx.db.delete(args.vendorId);
