@@ -10,7 +10,7 @@
 
 import { useState, FormEvent } from 'react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
-import { PaidStatus, PAID_STATUS_OPTIONS, parseMoney } from '@/app/lib/budget';
+import { PaidStatus, PAID_STATUS_OPTIONS, parseMoney, lineItemNameExample } from '@/app/lib/budget';
 
 export type LineItemFormValues = {
   categoryId: Id<'budgetCategories'>;
@@ -58,6 +58,9 @@ export default function BudgetLineItemModal({
   // Legacy free-text vendor on pre-v1.4.0 items that were never linked.
   const legacyVendor = initial && !initial.vendorId ? initial.vendor : undefined;
   const [error, setError] = useState<string | null>(null);
+
+  // Category-appropriate placeholder for the name field (updates with the picker).
+  const categoryName = categories.find(c => c._id === categoryId)?.name;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -119,7 +122,7 @@ export default function BudgetLineItemModal({
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Photographer deposit"
+              placeholder={lineItemNameExample(categoryName)}
               className="app-input w-full text-sm px-3 py-2.5"
             />
           </div>

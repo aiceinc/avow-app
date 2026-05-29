@@ -27,6 +27,31 @@ export function parseMoney(raw: string): number | null {
   return Math.max(0, Math.round(n));
 }
 
+/**
+ * A category-appropriate example for the line-item "name" placeholder. Keyed on
+ * the standard seeded budget categories (see convex/budget.ts DEFAULT_CATEGORIES);
+ * falls back to a generic example for custom or renamed categories.
+ */
+const LINE_ITEM_EXAMPLES: Record<string, string> = {
+  'venue': 'Reception hall deposit',
+  'catering & bar': 'Plated dinner for 100',
+  'photography & video': 'Photographer — 8-hour package',
+  'attire & beauty': 'Wedding dress',
+  'flowers & decor': 'Bridal bouquet',
+  'music & entertainment': 'DJ for the reception',
+  'stationery': 'Invitations & save-the-dates',
+  'rings': 'Wedding bands',
+  'transportation': 'Guest shuttle service',
+  'gifts & favors': 'Welcome bags',
+  'miscellaneous': 'Marriage license',
+};
+
+export function lineItemNameExample(categoryName?: string): string {
+  const key = categoryName?.trim().toLowerCase();
+  const example = (key && LINE_ITEM_EXAMPLES[key]) || 'Photographer deposit';
+  return `e.g. ${example}`;
+}
+
 /** How much has actually been paid on a line item. */
 export function paidAmount(item: Doc<'budgetLineItems'>): number {
   if (item.paidStatus === 'partial') return item.amountPaid ?? 0;

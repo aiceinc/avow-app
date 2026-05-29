@@ -15,8 +15,8 @@ const TABS: { segment: string; href: string; label: string }[] = [
   { segment: 'seating',  href: '/seating',  label: 'Seating Planner' },
   { segment: 'vendors',  href: '/vendors',  label: 'Vendors' },
   { segment: 'budget',   href: '/budget',   label: 'Budget' },
-  { segment: 'website',  href: '/website',  label: 'Wedding Website' },
   { segment: 'timeline', href: '/timeline', label: 'Day-of Timeline' },
+  { segment: 'website',  href: '/website',  label: 'Wedding Website' },
 ];
 
 export default function ModuleTabs() {

@@ -54,6 +54,8 @@ export default function HomePage() {
   const vendors   = useQuery(api.vendors.listVendors,   { workspaceId });
   const items     = useQuery(api.timeline.listItems,    { workspaceId });
   const site      = useQuery(api.weddingSite.get,       { workspaceId });
+  const tables      = useQuery(api.tables.list,          { workspaceId });
+  const assignments = useQuery(api.seatAssignments.list, { workspaceId });
 
   // Reuses the same mutation the Guests module uses — the one light "action".
   const createGuest = useMutation(api.guests.create);
@@ -104,6 +106,7 @@ export default function HomePage() {
             onQuickAdd={handleQuickAdd}
             adding={adding}
           />
+          <SeatingCard tables={tables} assignments={assignments} />
           <BudgetCard lineItems={lineItems} settings={settings} />
           <VendorsCard vendors={vendors} />
           <TimelineCard items={items} />
@@ -264,6 +267,46 @@ function GuestsCard({
           {adding ? 'Adding…' : 'Add'}
         </button>
       </form>
+    </Card>
+  );
+}
+
+// ── Seating Planner ───────────────────────────────────────────────────────────
+
+function SeatingCard({
+  tables,
+  assignments,
+}: {
+  tables: Doc<'tables'>[] | undefined;
+  assignments: Doc<'seatAssignments'>[] | undefined;
+}) {
+  const loading = tables === undefined || assignments === undefined;
+  return (
+    <Card title="Seating Planner" href="/seating" linkLabel="Open planner">
+      {loading ? (
+        <Loading />
+      ) : tables.length === 0 ? (
+        <EmptyHint>No tables yet — arrange your floor plan and seat your guests.</EmptyHint>
+      ) : (
+        (() => {
+          const capacity = tables.reduce((n, t) => n + t.seatCount, 0);
+          const seated = assignments.length;
+          return (
+            <>
+              <p className="text-3xl font-serif text-ink tabular-nums mb-3">
+                {tables.length}
+                <span className="text-sm text-ink-faint font-sans ml-2">
+                  table{tables.length !== 1 ? 's' : ''}
+                </span>
+              </p>
+              <p className="text-sm text-ink-soft">
+                <span className="text-ink font-medium tabular-nums">{seated}</span> of{' '}
+                <span className="text-ink font-medium tabular-nums">{capacity}</span> seat{capacity !== 1 ? 's' : ''} filled
+              </p>
+            </>
+          );
+        })()
+      )}
     </Card>
   );
 }
