@@ -10,10 +10,8 @@ import { TABLE_HEIGHT, SEAT_RADIUS, SEAT_GAP } from './geometry';
 
 // Bounding radii for spacing (matching geometry.ts constants)
 const TABLE_RADIUS = 58;
-const TABLE_WIDTH  = 170;
 const ROUND_R      = TABLE_RADIUS + SEAT_GAP + SEAT_RADIUS + 4; // ~82px — half-width with seats
 const RECT_H       = TABLE_HEIGHT / 2 + SEAT_GAP + SEAT_RADIUS + 4; // ~69px — half-height with seats
-const RECT_W       = TABLE_WIDTH  / 2 + SEAT_GAP + SEAT_RADIUS + 4; // ~99px — half-width with seats
 
 type TableSpec = {
   shape:     'round' | 'rectangular';
