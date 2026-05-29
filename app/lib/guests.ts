@@ -9,7 +9,35 @@
 export type Side = 'Partner A' | 'Partner B' | 'both';
 export type RsvpStatus = 'pending' | 'yes' | 'no' | 'maybe';
 
-// ── Side (Partner A / Partner B / Both) ─────────────────────────────────────
+// ── Side (the two partners / Both) ──────────────────────────────────────────
+// The stored side values stay "Partner A" / "Partner B" / "both" (see schema).
+// Display labels become the couple's first names when we can derive them — see
+// derivePartnerNames — falling back to the generic "Partner A" / "Partner B".
+
+export type PartnerNames = { a: string; b: string };
+
+/**
+ * Derive the two partners' display names from the workspace name (the wedding
+ * plan name chosen at the start, e.g. "Alex & Jordan's Wedding" → Alex / Jordan).
+ * Strips a trailing "…'s Wedding" / "Wedding" and splits on & / "and" / + / "/".
+ * Falls back to the generic "Partner A" / "Partner B" when two names can't be
+ * confidently extracted (e.g. "The Smiths", "Our Wedding").
+ */
+export function derivePartnerNames(workspaceName: string): PartnerNames {
+  const cleaned = workspaceName
+    .trim()
+    .replace(/[''’]s\s+wedding\s*$/i, '')
+    .replace(/\s+wedding\s*$/i, '')
+    .trim();
+  const parts = cleaned
+    .split(/\s*(?:&|\+|\/|\band\b)\s*/i)
+    .map((p) => p.replace(/[''’]s$/i, '').trim())
+    .filter(Boolean);
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return { a: parts[0], b: parts[1] };
+  }
+  return { a: 'Partner A', b: 'Partner B' };
+}
 
 /** Tailwind classes for a side badge background + text. */
 export function sideBadgeClasses(side: string): string {
@@ -18,25 +46,34 @@ export function sideBadgeClasses(side: string): string {
   return 'bg-violet-100 text-violet-700';
 }
 
+/** First initial of a partner's name; A/B for the generic fallback. */
+function partnerInitial(name: string | undefined, fallback: 'A' | 'B'): string {
+  if (!name || name === 'Partner A' || name === 'Partner B') return fallback;
+  return name.charAt(0).toUpperCase();
+}
+
 /** Compact one-glyph label used on tight badges (seating panel). */
-export function sideShortLabel(side: string): string {
-  if (side === 'Partner A') return 'A';
-  if (side === 'Partner B') return 'B';
+export function sideShortLabel(side: string, names?: PartnerNames): string {
+  if (side === 'Partner A') return partnerInitial(names?.a, 'A');
+  if (side === 'Partner B') return partnerInitial(names?.b, 'B');
   return '♥';
 }
 
 /** Human-readable label used where there's room (guest list, forms). */
-export function sideFullLabel(side: string): string {
-  if (side === 'Partner A') return 'Partner A';
-  if (side === 'Partner B') return 'Partner B';
+export function sideFullLabel(side: string, names?: PartnerNames): string {
+  if (side === 'Partner A') return names?.a || 'Partner A';
+  if (side === 'Partner B') return names?.b || 'Partner B';
   return 'Both';
 }
 
-export const SIDE_OPTIONS: { value: Side; label: string }[] = [
-  { value: 'Partner A', label: 'Partner A' },
-  { value: 'Partner B', label: 'Partner B' },
-  { value: 'both', label: 'Both' },
-];
+/** Side options for selects / segmented controls, labelled with the couple's names. */
+export function sideOptions(names?: PartnerNames): { value: Side; label: string }[] {
+  return [
+    { value: 'Partner A', label: names?.a || 'Partner A' },
+    { value: 'Partner B', label: names?.b || 'Partner B' },
+    { value: 'both', label: 'Both' },
+  ];
+}
 
 // ── RSVP status ──────────────────────────────────────────────────────────────
 

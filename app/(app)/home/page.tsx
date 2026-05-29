@@ -256,7 +256,7 @@ function GuestsCard({
           type="text"
           value={quickName}
           onChange={e => onQuickName(e.target.value)}
-          placeholder="Quick add a guest…"
+          placeholder="Add a guest…"
           aria-label="Quick add a guest by name"
           className="app-input flex-1 text-sm px-3 py-2"
         />

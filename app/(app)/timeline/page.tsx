@@ -103,7 +103,7 @@ export default function TimelinePage() {
           </div>
           {!isEmpty && (
             <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add event
+              + Add an event
             </button>
           )}
         </div>
@@ -121,7 +121,7 @@ export default function TimelinePage() {
               responsible and which vendor is involved.
             </p>
             <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add event
+              + Add an event
             </button>
           </div>
         )}

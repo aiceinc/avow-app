@@ -20,6 +20,16 @@ export const TABLE_HEIGHT = 85;   // default rectangular table height (px)
 export const SEAT_RADIUS  = 14;   // radius of each seat circle (px)
 export const SEAT_GAP     = 6;    // gap between table edge and seat centre (px)
 
+// ── Real-world scale ──────────────────────────────────────────────────────────
+// Canvas pixels → feet, chosen so the default round table (Ø116px) reads ~5.0 ft
+// (a standard 60" round) and the default rectangular table (170×85px) ~7.4×3.7 ft.
+export const PX_PER_FOOT = 23;
+
+/** Format a pixel length as feet with one decimal, e.g. 116 → "5.0". */
+export function pxToFeetLabel(px: number): string {
+  return (px / PX_PER_FOOT).toFixed(1);
+}
+
 // ── Resize clamps ───────────────────────────────────────────────────────────
 export const MIN_RADIUS = 34;
 export const MAX_RADIUS = 150;

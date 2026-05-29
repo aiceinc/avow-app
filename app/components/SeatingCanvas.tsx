@@ -29,6 +29,7 @@ import {
   clamp,
   getSeatLocalPosition,
   findNearestSeat,
+  pxToFeetLabel,
   type TableDims,
 } from '@/app/lib/geometry';
 
@@ -140,6 +141,11 @@ function TableNode({
   const w = getWidth(dims);
   const h = getHeight(dims);
 
+  // Real-world dimension readout (diameter for round, W × H for rectangular).
+  const dimLabel = table.shape === 'round'
+    ? `⌀ ${pxToFeetLabel(2 * r)} ft`
+    : `${pxToFeetLabel(w)} × ${pxToFeetLabel(h)} ft`;
+
   // Edge-midpoint handle positions, in the table's local (pre-rotation) frame.
   const handlePoints = table.shape === 'round'
     ? [{ x: r, y: 0 }, { x: -r, y: 0 }, { x: 0, y: -r }, { x: 0, y: r }]
@@ -175,6 +181,16 @@ function TableNode({
         <Text
           text={table.label} x={-60} y={-9} width={120}
           align="center" fontSize={11} fill={C.labelText}
+          fontFamily="system-ui, sans-serif" listening={false}
+        />
+      ) : null}
+
+      {/* Live dimensions — visible while the table is selected, updated during
+          resize, hidden once you click away. */}
+      {isSelected ? (
+        <Text
+          text={dimLabel} x={-60} y={table.label ? 7 : -5} width={120}
+          align="center" fontSize={10} fill={C.tableStrokeSelect}
           fontFamily="system-ui, sans-serif" listening={false}
         />
       ) : null}
@@ -306,7 +322,6 @@ function FloatingEditPanel({
       className="bg-white rounded-xl shadow-lg border border-rule p-2.5"
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
-      onMouseMove={e => e.stopPropagation()}
     >
       {/* Label + close */}
       <div className="flex items-center justify-between mb-2.5">

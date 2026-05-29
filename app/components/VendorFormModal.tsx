@@ -92,7 +92,7 @@ export default function VendorFormModal({
         onClick={e => e.stopPropagation()}
       >
         <h2 className="font-serif text-xl text-ink mb-5">
-          {editing ? 'Edit vendor' : 'Add vendor'}
+          {editing ? 'Edit vendor' : 'Add a vendor'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -220,7 +220,7 @@ export default function VendorFormModal({
               Cancel
             </button>
             <button type="submit" disabled={saving} className="btn btn-primary text-sm px-4 py-2">
-              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add vendor'}
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add a vendor'}
             </button>
           </div>
         </form>

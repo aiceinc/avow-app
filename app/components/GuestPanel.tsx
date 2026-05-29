@@ -14,7 +14,8 @@
  */
 
 import { Doc } from '@/convex/_generated/dataModel';
-import { sideBadgeClasses, sideShortLabel } from '@/app/lib/guests';
+import { sideBadgeClasses, sideShortLabel, PartnerNames } from '@/app/lib/guests';
+import { useWorkspace } from '@/app/components/WorkspaceContext';
 
 type Props = {
   guests:          Doc<'guests'>[];
@@ -26,16 +27,18 @@ type Props = {
 
 function GuestCard({
   guest,
+  partnerNames,
   isAssigned,
   isDragging,
   onDragStart,
   onDragEnd,
 }: {
-  guest:       Doc<'guests'>;
-  isAssigned:  boolean;
-  isDragging:  boolean;
-  onDragStart: () => void;
-  onDragEnd:   () => void;
+  guest:        Doc<'guests'>;
+  partnerNames: PartnerNames;
+  isAssigned:   boolean;
+  isDragging:   boolean;
+  onDragStart:  () => void;
+  onDragEnd:    () => void;
 }) {
   return (
     <div
@@ -59,7 +62,7 @@ function GuestCard({
       <span
         className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${sideBadgeClasses(guest.side)}`}
       >
-        {sideShortLabel(guest.side)}
+        {sideShortLabel(guest.side, partnerNames)}
       </span>
 
       {/* Name */}
@@ -91,6 +94,7 @@ export default function GuestPanel({
   onDragStart,
   onDragEnd,
 }: Props) {
+  const { partnerNames } = useWorkspace();
   const assignedIds = new Set<string>(assignments.map(a => a.guestId));
 
   const unassigned = guests.filter(g => !assignedIds.has(g._id));
@@ -119,6 +123,7 @@ export default function GuestPanel({
           <GuestCard
             key={g._id}
             guest={g}
+            partnerNames={partnerNames}
             isAssigned={false}
             isDragging={draggingGuestId === g._id}
             onDragStart={() => onDragStart(g._id)}
@@ -138,6 +143,7 @@ export default function GuestPanel({
               <GuestCard
                 key={g._id}
                 guest={g}
+                partnerNames={partnerNames}
                 isAssigned={true}
                 isDragging={draggingGuestId === g._id}
                 onDragStart={() => onDragStart(g._id)}

@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
@@ -47,7 +48,9 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 border-b border-rule bg-bg/80 backdrop-blur-sm shrink-0 z-10">
-      <Wordmark className="text-lg mr-1" />
+      <Link href="/home" aria-label="Go to Home" className="mr-1 hover:opacity-80 transition-opacity">
+        <Wordmark className="text-lg" />
+      </Link>
       <span className="text-ink-faint/50 text-sm">·</span>
       <span className="text-ink-soft text-sm mr-3">{workspaceName}</span>
 

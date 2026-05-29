@@ -264,7 +264,7 @@ export default function BudgetPage() {
             disabled={!categories || categories.length === 0}
             className="btn btn-primary text-sm px-4 py-2"
           >
-            + Add line item
+            + Add a line item
           </button>
           {addingCategory ? (
             <div className="flex items-center gap-1.5">

@@ -23,6 +23,7 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import WorkspaceContext from '@/app/components/WorkspaceContext';
 import WorkspaceScreen from '@/app/components/WorkspaceScreen';
+import { derivePartnerNames } from '@/app/lib/guests';
 import AppToolbar from '@/app/components/AppToolbar';
 import ModuleTabs from '@/app/components/ModuleTabs';
 import AppFooter from '@/app/components/AppFooter';
@@ -89,10 +90,11 @@ function WorkspaceGate({ children }: { children: React.ReactNode }) {
   }
 
   const active = workspaces.find(w => w._id === effectiveId)!;
+  const partnerNames = derivePartnerNames(active.name);
 
   return (
     <WorkspaceContext.Provider
-      value={{ workspaceId: effectiveId, workspaceName: active.name, switchWorkspace }}
+      value={{ workspaceId: effectiveId, workspaceName: active.name, partnerNames, switchWorkspace }}
     >
       <div className="flex flex-col h-screen overflow-hidden bg-bg">
         <AppToolbar canSwitch={workspaces.length > 1} />

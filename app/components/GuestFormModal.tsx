@@ -9,10 +9,11 @@
 
 import { useState, FormEvent } from 'react';
 import { Doc } from '@/convex/_generated/dataModel';
+import { useWorkspace } from '@/app/components/WorkspaceContext';
 import {
   Side,
   RsvpStatus,
-  SIDE_OPTIONS,
+  sideOptions,
   RSVP_OPTIONS,
 } from '@/app/lib/guests';
 
@@ -35,6 +36,7 @@ export default function GuestFormModal({
   onCancel: () => void;
 }) {
   const editing = !!initial;
+  const { partnerNames } = useWorkspace();
 
   const [name, setName]               = useState(initial?.name ?? '');
   const [side, setSide]               = useState<Side>(initial?.side ?? 'both');
@@ -80,7 +82,7 @@ export default function GuestFormModal({
         onClick={e => e.stopPropagation()}
       >
         <h2 className="font-serif text-xl text-ink mb-5">
-          {editing ? 'Edit guest' : 'Add guest'}
+          {editing ? 'Edit guest' : 'Add a guest'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -101,7 +103,7 @@ export default function GuestFormModal({
           <div>
             <label className="block text-xs font-medium text-ink-soft mb-1">Side</label>
             <div className="flex border border-rule rounded-lg p-1 gap-1">
-              {SIDE_OPTIONS.map(opt => (
+              {sideOptions(partnerNames).map(opt => (
                 <button
                   key={opt.value}
                   type="button"
@@ -182,7 +184,7 @@ export default function GuestFormModal({
               disabled={saving || !name.trim()}
               className="btn btn-primary text-sm px-4 py-2"
             >
-              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add guest'}
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add a guest'}
             </button>
           </div>
         </form>

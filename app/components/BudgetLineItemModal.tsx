@@ -107,7 +107,7 @@ export default function BudgetLineItemModal({
         onClick={e => e.stopPropagation()}
       >
         <h2 className="font-serif text-xl text-ink mb-5">
-          {editing ? 'Edit line item' : 'Add line item'}
+          {editing ? 'Edit line item' : 'Add a line item'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -246,7 +246,7 @@ export default function BudgetLineItemModal({
               Cancel
             </button>
             <button type="submit" disabled={saving} className="btn btn-primary text-sm px-4 py-2">
-              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add line item'}
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add a line item'}
             </button>
           </div>
         </form>

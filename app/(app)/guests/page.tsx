@@ -20,18 +20,19 @@ import GuestFormModal, { GuestFormValues } from '@/app/components/GuestFormModal
 import {
   sideBadgeClasses,
   sideFullLabel,
+  sideOptions,
   rsvpStatusOf,
   rsvpStyle,
   RsvpStatus,
   Side,
-  SIDE_OPTIONS,
+  PartnerNames,
   RSVP_OPTIONS,
 } from '@/app/lib/guests';
 
 type SortKey = 'name-asc' | 'name-desc';
 
 export default function GuestsPage() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, partnerNames } = useWorkspace();
 
   const guests      = useQuery(api.guests.list,          { workspaceId });
   const assignments = useQuery(api.seatAssignments.list, { workspaceId }) ?? [];
@@ -120,7 +121,7 @@ export default function GuestsPage() {
           </div>
           {!isEmpty && (
             <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add guest
+              + Add a guest
             </button>
           )}
         </div>
@@ -137,7 +138,7 @@ export default function GuestsPage() {
               Build your guest list here — it powers your seating chart and the rest of your planning.
             </p>
             <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add guest
+              + Add a guest
             </button>
           </div>
         )}
@@ -171,7 +172,7 @@ export default function GuestsPage() {
               <div className="flex items-center gap-1">
                 <span className="text-ink-faint mr-1">Side</span>
                 <FilterPill active={sideFilter === 'all'} onClick={() => setSideFilter('all')}>All</FilterPill>
-                {SIDE_OPTIONS.map(o => (
+                {sideOptions(partnerNames).map(o => (
                   <FilterPill key={o.value} active={sideFilter === o.value} onClick={() => setSideFilter(o.value)}>
                     {o.label}
                   </FilterPill>
@@ -187,6 +188,7 @@ export default function GuestsPage() {
                   <GuestRow
                     key={g._id}
                     guest={g}
+                    partnerNames={partnerNames}
                     seatedAt={seatByGuest.get(g._id)}
                     onEdit={() => openEdit(g)}
                     onDelete={() => setDeleting(g)}
@@ -219,11 +221,13 @@ export default function GuestsPage() {
 
 function GuestRow({
   guest,
+  partnerNames,
   seatedAt,
   onEdit,
   onDelete,
 }: {
   guest: Doc<'guests'>;
+  partnerNames: PartnerNames;
   seatedAt?: string;
   onEdit: () => void;
   onDelete: () => void;
@@ -236,7 +240,7 @@ function GuestRow({
       <span
         className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${sideBadgeClasses(guest.side)}`}
       >
-        {sideFullLabel(guest.side)}
+        {sideFullLabel(guest.side, partnerNames)}
       </span>
 
       {/* Name + plus-one + dietary */}

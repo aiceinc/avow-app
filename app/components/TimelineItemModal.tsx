@@ -77,7 +77,7 @@ export default function TimelineItemModal({
         onClick={e => e.stopPropagation()}
       >
         <h2 className="font-serif text-xl text-ink mb-5">
-          {editing ? 'Edit event' : 'Add event'}
+          {editing ? 'Edit event' : 'Add an event'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -176,7 +176,7 @@ export default function TimelineItemModal({
               Cancel
             </button>
             <button type="submit" disabled={saving} className="btn btn-primary text-sm px-4 py-2">
-              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add event'}
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Add an event'}
             </button>
           </div>
         </form>

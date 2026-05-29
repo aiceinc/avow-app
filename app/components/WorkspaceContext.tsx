@@ -12,6 +12,8 @@ import { Id } from '@/convex/_generated/dataModel';
 export type WorkspaceContextValue = {
   workspaceId: Id<'workspaces'>;
   workspaceName: string;
+  /** The couple's display names, derived from the workspace name. */
+  partnerNames: { a: string; b: string };
   /** Clear the current selection and return to the workspace picker. */
   switchWorkspace: () => void;
 };

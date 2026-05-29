@@ -192,7 +192,7 @@ export default function VendorsPage() {
           </div>
           {!isEmpty && (
             <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add vendor
+              + Add a vendor
             </button>
           )}
         </div>
@@ -210,7 +210,7 @@ export default function VendorsPage() {
               status, and a link to your budget.
             </p>
             <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add vendor
+              + Add a vendor
             </button>
           </div>
         )}
