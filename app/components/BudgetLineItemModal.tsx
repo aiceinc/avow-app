@@ -20,20 +20,23 @@ export type LineItemFormValues = {
   paidStatus: PaidStatus;
   amountPaid: number | null;
   notes: string;
-  vendor: string;
+  vendorId: Id<'vendors'> | null;
 };
 
 type Category = Pick<Doc<'budgetCategories'>, '_id' | 'name'>;
+type Vendor = Pick<Doc<'vendors'>, '_id' | 'name'>;
 
 export default function BudgetLineItemModal({
   initial,
   categories,
+  vendors,
   defaultCategoryId,
   onSave,
   onCancel,
 }: {
   initial?: Doc<'budgetLineItems'> | null;
   categories: Category[];
+  vendors: Vendor[];
   defaultCategoryId?: Id<'budgetCategories'>;
   onSave: (values: LineItemFormValues) => Promise<void>;
   onCancel: () => void;
@@ -49,8 +52,11 @@ export default function BudgetLineItemModal({
   const [paidStatus, setPaidStatus]   = useState<PaidStatus>(initial?.paidStatus ?? 'unpaid');
   const [amountPaid, setAmountPaid]   = useState(initial?.amountPaid != null ? String(initial.amountPaid) : '');
   const [notes, setNotes]             = useState(initial?.notes ?? '');
-  const [vendor, setVendor]           = useState(initial?.vendor ?? '');
+  const [vendorId, setVendorId]       = useState<Id<'vendors'> | ''>(initial?.vendorId ?? '');
   const [saving, setSaving] = useState(false);
+
+  // Legacy free-text vendor on pre-v1.4.0 items that were never linked.
+  const legacyVendor = initial && !initial.vendorId ? initial.vendor : undefined;
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -82,7 +88,7 @@ export default function BudgetLineItemModal({
         paidStatus,
         amountPaid: paidValue,
         notes: notes.trim(),
-        vendor: vendor.trim(),
+        vendorId: vendorId || null,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not save line item');
@@ -192,18 +198,31 @@ export default function BudgetLineItemModal({
             )}
           </div>
 
-          {/* Vendor */}
+          {/* Vendor — picker (linked to the Vendors module) */}
           <div>
             <label className="block text-xs font-medium text-ink-soft mb-1">
               Vendor <span className="text-ink-faint font-normal">(optional)</span>
             </label>
-            <input
-              type="text"
-              value={vendor}
-              onChange={e => setVendor(e.target.value)}
-              placeholder="e.g. Evergreen Studios"
+            <select
+              value={vendorId}
+              onChange={e => setVendorId(e.target.value as Id<'vendors'> | '')}
               className="app-input w-full text-sm px-3 py-2.5"
-            />
+            >
+              <option value="">— None —</option>
+              {vendors.map(vn => (
+                <option key={vn._id} value={vn._id}>{vn.name}</option>
+              ))}
+            </select>
+            {legacyVendor && !vendorId && (
+              <p className="text-xs text-ink-faint mt-1">
+                Previously entered: “{legacyVendor}” — pick the matching vendor to link it.
+              </p>
+            )}
+            {vendors.length === 0 && (
+              <p className="text-xs text-ink-faint mt-1">
+                Add vendors in the Vendors tab to link them here.
+              </p>
+            )}
           </div>
 
           {/* Notes */}

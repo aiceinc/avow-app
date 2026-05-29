@@ -29,6 +29,7 @@ export default function BudgetPage() {
   const settings   = useQuery(api.budget.getSettings,    { workspaceId });
   const categories = useQuery(api.budget.listCategories, { workspaceId });
   const lineItems  = useQuery(api.budget.listLineItems,  { workspaceId }) ?? [];
+  const vendors    = useQuery(api.vendors.listVendors,   { workspaceId }) ?? [];
 
   const seedDefaults  = useMutation(api.budget.seedDefaultCategories);
   const setTarget     = useMutation(api.budget.setTarget);
@@ -58,6 +59,13 @@ export default function BudgetPage() {
     }
     return m;
   }, [lineItems]);
+
+  // vendorId → name, for resolving a line item's linked vendor in the list.
+  const vendorName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const vn of vendors) m.set(vn._id, vn.name);
+    return m;
+  }, [vendors]);
 
   const totals = useMemo(() => sumTotals(lineItems), [lineItems]);
   const target = settings?.targetBudget ?? null;
@@ -142,7 +150,7 @@ export default function BudgetPage() {
         paidStatus: values.paidStatus,
         amountPaid: values.amountPaid,
         notes: values.notes,
-        vendor: values.vendor,
+        vendorId: values.vendorId,
       });
     } else {
       await addLineItem({
@@ -154,7 +162,7 @@ export default function BudgetPage() {
         paidStatus: values.paidStatus,
         amountPaid: values.amountPaid ?? undefined,
         notes: values.notes || undefined,
-        vendor: values.vendor || undefined,
+        vendorId: values.vendorId ?? undefined,
       });
     }
     closeItemModal();
@@ -356,6 +364,7 @@ export default function BudgetPage() {
                           <LineItemRow
                             key={item._id}
                             item={item}
+                            vendorLabel={item.vendorId ? vendorName.get(item.vendorId) ?? 'Unknown vendor' : item.vendor}
                             onEdit={() => openEditItem(item)}
                             onDelete={() => confirmDeleteItem(item)}
                           />
@@ -374,6 +383,7 @@ export default function BudgetPage() {
         <BudgetLineItemModal
           initial={editingItem}
           categories={categories}
+          vendors={vendors}
           defaultCategoryId={defaultCatId}
           onSave={handleSaveItem}
           onCancel={closeItemModal}
@@ -423,10 +433,12 @@ function Stat({
 
 function LineItemRow({
   item,
+  vendorLabel,
   onEdit,
   onDelete,
 }: {
   item: Doc<'budgetLineItems'>;
+  vendorLabel?: string;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -436,10 +448,10 @@ function LineItemRow({
       {/* Name + secondary */}
       <div className="min-w-0 flex-1">
         <div className="text-sm text-ink truncate">{item.name}</div>
-        {(item.vendor || item.notes) && (
+        {(vendorLabel || item.notes) && (
           <div className="text-xs text-ink-faint truncate mt-0.5">
-            {item.vendor && <span>{item.vendor}</span>}
-            {item.vendor && item.notes && <span> · </span>}
+            {vendorLabel && <span>{vendorLabel}</span>}
+            {vendorLabel && item.notes && <span> · </span>}
             {item.notes && <span>{item.notes}</span>}
           </div>
         )}

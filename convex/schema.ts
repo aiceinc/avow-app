@@ -122,9 +122,48 @@ export default defineSchema({
     ),
     amountPaid: v.optional(v.number()),   // only relevant when paidStatus === "partial"
     notes: v.optional(v.string()),
-    // TODO: when the Vendors module ships, this becomes v.id("vendors").
-    // Kept as free text for now (see budget brief Part 4).
+    // FK to a vendor record (Vendors module, v1.4.0). Optional + additive.
+    vendorId: v.optional(v.id("vendors")),
+    // Legacy free-text vendor (pre-v1.4.0). Retained for backward compatibility
+    // and lazy migration: when a user picks a real vendor in the editor we set
+    // vendorId and clear this. Display prefers vendorId, falls back to this.
+    // Also used as a graceful fallback when a referenced vendor is deleted
+    // (its name is preserved here). Do NOT drop — old rows still rely on it.
     vendor: v.optional(v.string()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_categoryId", ["categoryId"])
+    .index("by_vendorId", ["vendorId"]),
+
+  // ── Vendors (v1.4.0) ──────────────────────────────────────────────────────
+  // Vendor "type" categories (Photographer, Caterer, …) — distinct from budget
+  // spending categories. Seeded with defaults on first Vendors visit; users can
+  // rename/delete/add regardless of isDefault. Mirrors budgetCategories.
+  vendorCategories: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    order: v.number(),      // display order
+    isDefault: v.boolean(), // true for seeded categories
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  // Vendor records. Cost lives in the budget (a budgetLineItem points here via
+  // vendorId) — vendors intentionally store no cost, to keep a single source of
+  // truth. categoryId is optional ("Uncategorized" allowed).
+  vendors: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    categoryId: v.optional(v.id("vendorCategories")),
+    status: v.union(
+      v.literal("researching"),
+      v.literal("contacted"),
+      v.literal("booked"),
+      v.literal("declined")
+    ),
+    contactName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    website: v.optional(v.string()),
+    notes: v.optional(v.string()),
   })
     .index("by_workspaceId", ["workspaceId"])
     .index("by_categoryId", ["categoryId"]),

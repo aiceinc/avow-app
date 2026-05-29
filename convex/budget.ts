@@ -204,7 +204,8 @@ export const addLineItem = mutation({
     paidStatus: paidStatusValidator,
     amountPaid: v.optional(v.number()),
     notes: v.optional(v.string()),
-    vendor: v.optional(v.string()),
+    vendorId: v.optional(v.id("vendors")),
+    vendor: v.optional(v.string()), // legacy free text; vendorId is preferred
   },
   handler: async (ctx, args) => {
     await assertMember(ctx, args.workspaceId);
@@ -215,6 +216,13 @@ export const addLineItem = mutation({
     }
     const name = args.name.trim();
     if (!name) throw new Error("Line item name is required");
+
+    if (args.vendorId !== undefined) {
+      const vendor = await ctx.db.get(args.vendorId);
+      if (!vendor || vendor.workspaceId !== args.workspaceId) {
+        throw new Error("Vendor not found in this workspace");
+      }
+    }
 
     return await ctx.db.insert("budgetLineItems", {
       workspaceId: args.workspaceId,
@@ -228,7 +236,9 @@ export const addLineItem = mutation({
           ? dollars(args.amountPaid)
           : undefined,
       notes: args.notes?.trim() || undefined,
-      vendor: args.vendor?.trim() || undefined,
+      vendorId: args.vendorId,
+      // Picking a real vendor supersedes any legacy free text.
+      vendor: args.vendorId ? undefined : args.vendor?.trim() || undefined,
     });
   },
 });
@@ -247,7 +257,9 @@ export const updateLineItem = mutation({
     paidStatus: v.optional(paidStatusValidator),
     amountPaid: v.optional(v.union(v.number(), v.null())),
     notes: v.optional(v.string()),
-    vendor: v.optional(v.string()),
+    // Pass a vendorId to link (and clear any legacy text), or null to unlink.
+    vendorId: v.optional(v.union(v.id("vendors"), v.null())),
+    vendor: v.optional(v.string()), // legacy free text; vendorId is preferred
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.lineItemId);
@@ -261,6 +273,12 @@ export const updateLineItem = mutation({
       const cat = await ctx.db.get(args.categoryId);
       if (!cat || cat.workspaceId !== item.workspaceId) {
         throw new Error("Category not found in this workspace");
+      }
+    }
+    if (args.vendorId !== undefined && args.vendorId !== null) {
+      const vendor = await ctx.db.get(args.vendorId);
+      if (!vendor || vendor.workspaceId !== item.workspaceId) {
+        throw new Error("Vendor not found in this workspace");
       }
     }
 
@@ -278,7 +296,16 @@ export const updateLineItem = mutation({
         : {}),
       ...(args.paidStatus !== undefined ? { paidStatus: args.paidStatus } : {}),
       ...(args.notes !== undefined ? { notes: args.notes.trim() || undefined } : {}),
-      ...(args.vendor !== undefined ? { vendor: args.vendor.trim() || undefined } : {}),
+      // Vendor link: setting vendorId clears the stale legacy text (lazy
+      // migration). null unlinks. A bare `vendor` (no vendorId) still updates
+      // the legacy text for backward compatibility.
+      ...(args.vendorId !== undefined
+        ? args.vendorId === null
+          ? { vendorId: undefined }
+          : { vendorId: args.vendorId, vendor: undefined }
+        : args.vendor !== undefined
+        ? { vendor: args.vendor.trim() || undefined }
+        : {}),
       // amountPaid only persists for partial; cleared otherwise.
       ...(nextStatus !== "partial"
         ? { amountPaid: undefined }
