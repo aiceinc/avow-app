@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useSelectedLayoutSegment } from 'next/navigation';
 
 const TABS: { segment: string; href: string; label: string }[] = [
+  { segment: 'home',     href: '/home',     label: 'Home' },
   { segment: 'guests',   href: '/guests',   label: 'Guest List' },
   { segment: 'seating',  href: '/seating',  label: 'Seating Planner' },
   { segment: 'vendors',  href: '/vendors',  label: 'Vendors' },
