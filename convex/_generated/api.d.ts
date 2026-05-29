@@ -14,10 +14,12 @@ import type * as cursors from "../cursors.js";
 import type * as guests from "../guests.js";
 import type * as http from "../http.js";
 import type * as lib from "../lib.js";
+import type * as public_ from "../public.js";
 import type * as seatAssignments from "../seatAssignments.js";
 import type * as tables from "../tables.js";
 import type * as timeline from "../timeline.js";
 import type * as vendors from "../vendors.js";
+import type * as weddingSite from "../weddingSite.js";
 import type * as workspaces from "../workspaces.js";
 
 import type {
@@ -33,10 +35,12 @@ declare const fullApi: ApiFromModules<{
   guests: typeof guests;
   http: typeof http;
   lib: typeof lib;
+  public: typeof public_;
   seatAssignments: typeof seatAssignments;
   tables: typeof tables;
   timeline: typeof timeline;
   vendors: typeof vendors;
+  weddingSite: typeof weddingSite;
   workspaces: typeof workspaces;
 }>;
 

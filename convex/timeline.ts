@@ -81,6 +81,7 @@ export const updateItem = mutation({
     vendorId: v.optional(v.union(v.id("vendors"), v.null())),
     responsibleParty: v.optional(v.string()),
     notes: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()), // show this item on the public wedding site
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
@@ -110,6 +111,7 @@ export const updateItem = mutation({
         ? { responsibleParty: args.responsibleParty.trim() || undefined }
         : {}),
       ...(args.notes !== undefined ? { notes: args.notes.trim() || undefined } : {}),
+      ...(args.isPublic !== undefined ? { isPublic: args.isPublic } : {}),
     });
   },
 });

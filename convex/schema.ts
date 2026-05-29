@@ -61,7 +61,13 @@ export default defineSchema({
     ),
     hasPlusOne: v.optional(v.boolean()),
     plusOneName: v.optional(v.string()),
-  }).index("by_workspaceId", ["workspaceId"]),
+    // Wedding Website module (v1.6.0): per-guest opaque RSVP token. Generated on
+    // demand when the couple shares an invite link. The token is the auth for
+    // the public token-gated RSVP write-back — see convex/public.ts.
+    rsvpToken: v.optional(v.string()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_rsvpToken", ["rsvpToken"]),
 
   // ── tables ────────────────────────────────────────────────────────────────
   tables: defineTable({
@@ -182,9 +188,33 @@ export default defineSchema({
     vendorId: v.optional(v.id("vendors")),
     responsibleParty: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Wedding Website module (v1.6.0): when true, this item is shown on the
+    // public site. Absent/false = private. Only a whitelisted projection
+    // (time/title/location) is ever exposed publicly — see convex/public.ts.
+    isPublic: v.optional(v.boolean()),
   })
     .index("by_workspaceId", ["workspaceId"])
     .index("by_vendorId", ["vendorId"]),
+
+  // ── Wedding Website (v1.6.0) ──────────────────────────────────────────────
+  // One published mini-site per workspace, served publicly at /w/{slug}. `slug`
+  // is globally unique (the public URL is global). The site is unpublished until
+  // the couple explicitly publishes; the public route only ever renders rows
+  // with published === true (see convex/public.ts). Content fields are a small
+  // fixed set — no CMS.
+  weddingSites: defineTable({
+    workspaceId: v.id("workspaces"),
+    slug: v.string(),
+    published: v.boolean(),
+    coupleNames: v.optional(v.string()),
+    weddingDate: v.optional(v.string()),    // ISO "YYYY-MM-DD"
+    venueName: v.optional(v.string()),
+    venueLocation: v.optional(v.string()),
+    story: v.optional(v.string()),
+    travelNotes: v.optional(v.string()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_slug", ["slug"]),
 
   // ── cursors ───────────────────────────────────────────────────────────────
   // High-churn ephemeral presence. One row per active user per workspace.
