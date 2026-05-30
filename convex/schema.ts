@@ -26,6 +26,12 @@ export default defineSchema({
     // Shareable invite token — generated on demand, expires after 48h
     inviteCode: v.optional(v.string()),
     inviteCodeExpiry: v.optional(v.number()), // Date.now() + 48h
+    // Retention trigger (v1.9.0). Set when the workspace's subscription lapses;
+    // the retention cron purges the workspace RETENTION_GRACE_DAYS later (see
+    // convex/retention.ts). Unset/undefined = active → NEVER purged. No billing
+    // system sets this yet, so it is unset on every workspace today and the
+    // retention job purges nothing in normal operation.
+    subscriptionLapsedAt: v.optional(v.number()),
   }),
 
   // ── workspaceMembers ──────────────────────────────────────────────────────

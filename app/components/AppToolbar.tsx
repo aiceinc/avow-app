@@ -91,6 +91,12 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
             Switch
           </button>
         )}
+        <Link
+          href="/account"
+          className="text-xs text-ink-faint hover:text-ink-soft transition-colors"
+        >
+          Account
+        </Link>
         <button
           onClick={async () => { await signOut(); router.push('/auth'); }}
           className="text-xs text-ink-faint hover:text-ink-soft transition-colors"
