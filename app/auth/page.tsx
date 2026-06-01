@@ -60,6 +60,9 @@ type Tier = {
   badge?: string;
 };
 
+/** Annual billing discount (20% off the monthly rate). */
+const ANNUAL_DISCOUNT = 0.2;
+
 const TIERS: Tier[] = [
   {
     tier: 'Standard',
@@ -258,6 +261,7 @@ export default function AuthPage() {
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${annual ? 'translate-x-5' : ''}`} />
           </button>
           <span className={`text-sm transition-colors ${annual ? 'text-ink font-medium' : 'text-ink-soft'}`}>Annually</span>
+          <span className="text-[0.65rem] font-medium bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-sm tracking-wide">Save 20%</span>
         </div>
 
         {/* Trial notice + reminder */}
@@ -387,7 +391,8 @@ export default function AuthPage() {
 // ── Price card ──────────────────────────────────────────────────────────────
 
 function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; onChoose: () => void }) {
-  const annualTotal = tier.monthly * 12;
+  const annualPerMonth = Math.round(tier.monthly * (1 - ANNUAL_DISCOUNT));
+  const annualTotal = annualPerMonth * 12;
   return (
     <div className={`bg-white rounded-md p-8 flex flex-col ${tier.featured ? 'border-[1.5px] border-ink' : 'border border-rule'}`}>
       {tier.badge && (
@@ -401,7 +406,7 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
         <span className="text-[0.78rem] text-ink-faint ml-0.5 mb-1">{annual ? 'annually' : '/mo'}</span>
       </div>
       <div className="text-[0.7rem] text-ink-faint mt-1 min-h-[1rem]">
-        {annual ? `$${tier.monthly}/mo equivalent` : ''}
+        {annual ? `$${annualPerMonth}/mo equivalent` : ''}
       </div>
       <p className="text-[0.78rem] text-ink-soft my-3 leading-relaxed">{tier.tagline}</p>
       <div className="h-px bg-rule mb-5" />
