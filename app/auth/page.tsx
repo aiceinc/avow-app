@@ -22,8 +22,14 @@ import { useState, FormEvent } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 type Flow = 'signIn' | 'signUp';
+
+/** Smooth-scroll to an in-page section (nav tabs / hero link). */
+function scrollToId(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+}
 
 /** Map raw Convex Auth error messages to user-friendly strings. */
 function friendlyError(raw: string, flow: Flow): string {
@@ -47,8 +53,7 @@ function friendlyError(raw: string, flow: Flow): string {
 
 type Tier = {
   tier: string;
-  monthly: number;
-  annual: number; // per-month when billed annually
+  monthly: number; // annual price is monthly × 12 (no discount, for now)
   tagline: string;
   perks: string[];
   featured?: boolean;
@@ -58,15 +63,13 @@ type Tier = {
 const TIERS: Tier[] = [
   {
     tier: 'Standard',
-    monthly: 9,
-    annual: 7,
+    monthly: 49,
     tagline: 'Everything you need for a straightforward, well-organised wedding.',
     perks: ['Guest list & RSVPs up to 100', 'Budget tracker', 'Wedding website', 'Spreadsheet exports'],
   },
   {
     tier: 'Pro',
-    monthly: 19,
-    annual: 15,
+    monthly: 99,
     tagline: 'For larger weddings or couples who want every feature without limits.',
     perks: ['Unlimited guests', 'Seating planner', 'Day-of timeline', 'Vendor management', 'Chat support'],
     featured: true,
@@ -74,8 +77,7 @@ const TIERS: Tier[] = [
   },
   {
     tier: 'Planner',
-    monthly: 49,
-    annual: 39,
+    monthly: 399,
     tagline: 'For professional wedding planners managing multiple couples at once.',
     perks: ['Everything in Pro +', 'Up to 10 weddings', 'Client-facing portal', 'Branded exports', 'Dedicated support & chat'],
   },
@@ -143,9 +145,9 @@ export default function AuthPage() {
         </a>
 
         <div className="hidden md:flex items-stretch h-14 mx-2">
-          <a href="#features" className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">Features</a>
-          <a href="#how" className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">How it works</a>
-          <a href="#pricing" className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">Pricing</a>
+          <button onClick={() => scrollToId('features')} className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">Features</button>
+          <button onClick={() => scrollToId('how')} className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">How it works</button>
+          <button onClick={() => scrollToId('pricing')} className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">Pricing</button>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -166,31 +168,39 @@ export default function AuthPage() {
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
       <section className="grid md:grid-cols-2 min-h-[520px]">
+        {/* Content centered within the left column */}
         <div className="flex flex-col justify-center px-6 sm:px-10 py-16 lg:py-20">
-          <p className="text-xs font-medium tracking-[0.18em] uppercase text-accent mb-5">Wedding planning, simplified</p>
-          <h1 className="font-serif font-light text-5xl sm:text-6xl leading-[1.08] mb-5">
-            Every detail,<br /><em className="italic">one place</em>
-          </h1>
-          <p className="text-[15px] text-ink-soft leading-relaxed mb-8 max-w-[38ch]">
-            From guest lists to seating charts, budgets to timelines — Avow keeps everything organised so you can
-            focus on what matters.
-          </p>
-          <div className="flex items-center gap-6 flex-wrap">
-            <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">
-              Start your 14-day trial
-            </button>
-            <a href="#how" className="text-sm text-ink-soft border-b border-ink/20 pb-px hover:text-ink transition-colors">
-              See how it works
-            </a>
+          <div className="w-full max-w-md mx-auto">
+            <p className="text-xs font-medium tracking-[0.18em] uppercase text-accent mb-5">Wedding planning, simplified</p>
+            <h1 className="font-serif font-light text-5xl sm:text-6xl leading-[1.08] mb-5">
+              Every detail,<br /><em className="italic">one place</em>
+            </h1>
+            <p className="text-[15px] text-ink-soft leading-relaxed mb-8 max-w-[38ch]">
+              From guest lists to seating charts, budgets to timelines — Avow keeps everything organised so you can
+              focus on what matters.
+            </p>
+            <div className="flex items-center gap-6 flex-wrap">
+              <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">
+                Start your 14-day trial
+              </button>
+              <button onClick={() => scrollToId('how')} className="text-sm text-ink-soft border-b border-ink/20 pb-px hover:text-ink transition-colors">
+                See how it works
+              </button>
+            </div>
+            <p className="text-xs text-ink-faint mt-4">Card required. Cancel anytime before your trial ends.</p>
           </div>
-          <p className="text-xs text-ink-faint mt-4">Card required. Cancel anytime before your trial ends.</p>
         </div>
 
-        {/* Hero image — intentionally left blank for Ben to supply. */}
+        {/* Hero image */}
         <div className="relative overflow-hidden bg-bg-tint min-h-[260px] md:min-h-[520px] border-l border-rule">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs tracking-[0.18em] uppercase text-ink-faint/60">Image</span>
-          </div>
+          <Image
+            src="/hero.jpg"
+            alt=""
+            fill
+            priority
+            sizes="(min-width: 768px) 50vw, 100vw"
+            className="object-cover"
+          />
         </div>
       </section>
 
@@ -232,8 +242,7 @@ export default function AuthPage() {
 
       {/* ── Pricing ─────────────────────────────────────────────────────────── */}
       <section id="pricing" className="max-w-5xl mx-auto px-6 sm:px-10 py-20 scroll-mt-14">
-        <p className="text-xs font-medium tracking-[0.18em] uppercase text-accent text-center mb-4">Pricing</p>
-        <h2 className="font-serif font-light text-4xl text-center mb-8">Simple, honest pricing</h2>
+        <h2 className="font-serif font-light text-4xl text-center mb-8">Pricing</h2>
 
         {/* Billing toggle */}
         <div className="flex items-center justify-center gap-3 mb-6">
@@ -249,7 +258,6 @@ export default function AuthPage() {
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${annual ? 'translate-x-5' : ''}`} />
           </button>
           <span className={`text-sm transition-colors ${annual ? 'text-ink font-medium' : 'text-ink-soft'}`}>Annually</span>
-          <span className="text-[0.65rem] font-medium bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-sm tracking-wide">Save 20%</span>
         </div>
 
         {/* Trial notice + reminder */}
@@ -292,7 +300,7 @@ export default function AuthPage() {
         <div className="flex items-center gap-7">
           <Link href="/privacy" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Privacy</Link>
           <a href="mailto:hello@avow.wedding" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Contact</a>
-          <span className="text-xs tracking-wide text-bg/30">v1.10.1 · © 2026 AICE Inc.</span>
+          <span className="text-xs tracking-wide text-bg/30">v1.10.2 · © 2026 AICE Inc.</span>
         </div>
       </footer>
 
@@ -379,7 +387,7 @@ export default function AuthPage() {
 // ── Price card ──────────────────────────────────────────────────────────────
 
 function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; onChoose: () => void }) {
-  const price = annual ? tier.annual : tier.monthly;
+  const annualTotal = tier.monthly * 12;
   return (
     <div className={`bg-white rounded-md p-8 flex flex-col ${tier.featured ? 'border-[1.5px] border-ink' : 'border border-rule'}`}>
       {tier.badge && (
@@ -389,11 +397,11 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
       )}
       <div className="text-xs font-medium tracking-[0.12em] uppercase text-ink-soft mb-2.5">{tier.tier}</div>
       <div className="flex items-end">
-        <span className="font-serif font-light text-5xl text-ink leading-none">${price}</span>
-        <span className="text-[0.78rem] text-ink-faint ml-0.5 mb-1">/mo</span>
+        <span className="font-serif font-light text-5xl text-ink leading-none">${annual ? annualTotal : tier.monthly}</span>
+        <span className="text-[0.78rem] text-ink-faint ml-0.5 mb-1">{annual ? 'annually' : '/mo'}</span>
       </div>
       <div className="text-[0.7rem] text-ink-faint mt-1 min-h-[1rem]">
-        {annual ? `Billed $${price * 12} annually` : ''}
+        {annual ? `$${tier.monthly}/mo equivalent` : ''}
       </div>
       <p className="text-[0.78rem] text-ink-soft my-3 leading-relaxed">{tier.tagline}</p>
       <div className="h-px bg-rule mb-5" />
