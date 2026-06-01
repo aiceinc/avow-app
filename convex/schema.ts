@@ -222,6 +222,22 @@ export default defineSchema({
     .index("by_workspaceId", ["workspaceId"])
     .index("by_slug", ["slug"]),
 
+  // ── Home dashboard: tasks & notes (v1.10.1) ───────────────────────────────
+  // Workspace-scoped checklist + free-text notes shown on the home dashboard.
+  // (Added to WORKSPACE_SCOPED_TABLES in convex/lib.ts so account deletion +
+  // retention purge them.)
+  tasks: defineTable({
+    workspaceId: v.id("workspaces"),
+    title: v.string(),
+    done: v.boolean(),
+    dueDate: v.optional(v.string()), // ISO "YYYY-MM-DD"; absent = no due date
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  notes: defineTable({
+    workspaceId: v.id("workspaces"),
+    text: v.string(),
+  }).index("by_workspaceId", ["workspaceId"]),
+
   // ── cursors ───────────────────────────────────────────────────────────────
   // High-churn ephemeral presence. One row per active user per workspace.
   cursors: defineTable({

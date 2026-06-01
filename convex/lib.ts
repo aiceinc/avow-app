@@ -60,6 +60,8 @@ const WORKSPACE_SCOPED_TABLES = [
   "vendors",
   "timelineItems",
   "weddingSites",
+  "tasks",
+  "notes",
 ] as const;
 
 /**

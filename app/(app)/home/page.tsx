@@ -1,20 +1,20 @@
 'use client';
 
 /**
- * /home — the Home / Overview dashboard (v1.7.0), the post-login landing route
- * and first nav tab.
+ * /home — the Home / Overview dashboard (redesigned v1.10.1).
  *
- * A read-mostly aggregate view across all six modules for the active workspace:
- * a wedding-day countdown hero plus glanceable summary cards (guests, budget,
- * vendors, timeline, website), each linking into its full module with a sensible
- * empty state. It writes nothing of its own — the only mutation is a trivial
- * single-field "quick add guest" that reuses the existing guests.create mutation
- * (side defaults to "both", RSVP to "pending", exactly like the guest modal).
+ * Dashboard layout emulating Abby's `vow_dashboard` mockup (body/content only —
+ * the app keeps its own ModuleTabs nav), rendered with Avow's existing palette +
+ * fonts. Everything is wired to real workspace data:
+ *   - greeting + wedding-day countdown (weddingSites.weddingDate, graceful when unset)
+ *   - stat row: guests, budget remaining, tasks complete
+ *   - budget overview (per-category spend bars), RSVP breakdown
+ *   - Tasks checklist (functional CRUD — convex/tasks.ts)
+ *   - Vendors list with status badges
+ *   - Notes / notebook (functional CRUD — convex/notes.ts)
  *
- * No new Convex queries: every card reads an existing module query and derives
- * its summary on the client (the lists are bounded and small). The wedding date
- * is read from weddingSites.weddingDate (its only home) and degrades gracefully
- * when unset — see the schema note in the v1.7.0 brief.
+ * Tasks + Notes are real persisted features (workspace-scoped; purged by account
+ * deletion + retention via WORKSPACE_SCOPED_TABLES). No new client deps.
  */
 
 import { useState, FormEvent } from 'react';
@@ -23,434 +23,486 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Doc } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
-import { rsvpStatusOf, rsvpStyle } from '@/app/lib/guests';
+import { rsvpStatusOf } from '@/app/lib/guests';
 import { sumTotals, formatMoney } from '@/app/lib/budget';
-import { statusOf, vendorStatusStyle } from '@/app/lib/vendors';
-import { formatTime } from '@/app/lib/timeline';
+import { statusOf } from '@/app/lib/vendors';
 
-/** Whole-day difference from today (local midnight) to an ISO "YYYY-MM-DD". */
-function daysUntil(iso: string, todayMs: number): number | null {
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function timeGreeting(d: Date): string {
+  const h = d.getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+function formatLongDate(d: Date): string {
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function shortFromMs(ms: number): string {
+  const d = new Date(ms);
+  return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+}
+function dueShort(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${MONTHS_SHORT[Number(m[2]) - 1] ?? ''} ${Number(m[3])}`;
+}
+type Countdown = { past: boolean; days: number; hours: number; minutes: number };
+function countdown(iso: string, nowMs: number): Countdown | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return null;
   const target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
-  return Math.round((target - todayMs) / 86_400_000);
-}
-
-/** Format an ISO "YYYY-MM-DD" as a friendly date (no timezone drift). */
-function formatDate(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  return `${months[Number(m[2]) - 1] ?? ''} ${Number(m[3])}, ${m[1]}`;
+  const diff = target - nowMs;
+  if (diff <= 0) return { past: true, days: 0, hours: 0, minutes: 0 };
+  return {
+    past: false,
+    days: Math.floor(diff / 86_400_000),
+    hours: Math.floor((diff % 86_400_000) / 3_600_000),
+    minutes: Math.floor((diff % 3_600_000) / 60_000),
+  };
 }
 
 export default function HomePage() {
-  const { workspaceId, workspaceName } = useWorkspace();
+  const { workspaceId, partnerNames } = useWorkspace();
 
-  // Existing module queries — no new Convex functions. May be undefined while loading.
-  const guests    = useQuery(api.guests.list,          { workspaceId });
-  const lineItems = useQuery(api.budget.listLineItems,  { workspaceId });
-  const settings  = useQuery(api.budget.getSettings,    { workspaceId });
-  const vendors   = useQuery(api.vendors.listVendors,   { workspaceId });
-  const items     = useQuery(api.timeline.listItems,    { workspaceId });
-  const site      = useQuery(api.weddingSite.get,       { workspaceId });
-  const tables      = useQuery(api.tables.list,          { workspaceId });
-  const assignments = useQuery(api.seatAssignments.list, { workspaceId });
+  const me        = useQuery(api.workspaces.getMyUserId);
+  const guests    = useQuery(api.guests.list,            { workspaceId });
+  const settings  = useQuery(api.budget.getSettings,     { workspaceId });
+  const lineItems = useQuery(api.budget.listLineItems,   { workspaceId });
+  const budgetCats = useQuery(api.budget.listCategories, { workspaceId });
+  const vendors   = useQuery(api.vendors.listVendors,    { workspaceId });
+  const vendorCats = useQuery(api.vendors.listCategories,{ workspaceId });
+  const site      = useQuery(api.weddingSite.get,        { workspaceId });
+  const tasks     = useQuery(api.tasks.list,             { workspaceId });
+  const notes     = useQuery(api.notes.list,             { workspaceId });
 
-  // Reuses the same mutation the Guests module uses — the one light "action".
-  const createGuest = useMutation(api.guests.create);
+  // "Now" captured once at mount (lazy initializer — not an impure render call).
+  const [nowMs] = useState(() => Date.now());
+  const now = new Date(nowMs);
 
-  // "Today" captured once at mount (lazy initializer, not an impure render call)
-  // so the countdown is stable across re-renders.
-  const [todayMs] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  });
+  const firstName =
+    me?.name?.trim().split(/\s+/)[0] ||
+    (partnerNames.a && partnerNames.a !== 'Partner A' ? partnerNames.a : '');
+  const greeting = firstName ? `${timeGreeting(now)}, ${firstName}` : timeGreeting(now);
 
-  const [quickName, setQuickName] = useState('');
-  const [adding, setAdding] = useState(false);
+  // ── Derived stats ──────────────────────────────────────────────────────────
+  const totalGuests = guests?.length ?? 0;
+  const confirmed = (guests ?? []).filter((g) => rsvpStatusOf(g) === 'yes').length;
 
-  async function handleQuickAdd(e: FormEvent) {
-    e.preventDefault();
-    const name = quickName.trim();
-    if (!name || adding) return;
-    setAdding(true);
-    try {
-      // Matches the guest modal's defaults: side "both", RSVP "pending".
-      await createGuest({ workspaceId, name, side: 'both' });
-      setQuickName('');
-    } finally {
-      setAdding(false);
-    }
-  }
+  const totals = sumTotals(lineItems ?? []);
+  const basis = totals.actual > 0 ? totals.actual : totals.estimated;
+  const target = settings?.targetBudget ?? null;
+  const remaining = target !== null ? target - basis : null;
+
+  const doneTasks = (tasks ?? []).filter((t) => t.done).length;
+  const totalTasks = tasks?.length ?? 0;
+
+  const cd = site?.weddingDate ? countdown(site.weddingDate, nowMs) : null;
 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-5xl mx-auto w-full px-6 py-8">
 
-        {/* Hero — countdown */}
-        <CountdownHero
-          weddingDate={site?.weddingDate ?? null}
-          coupleNames={site?.coupleNames ?? null}
-          workspaceName={workspaceName}
-          todayMs={todayMs}
-          loading={site === undefined}
-        />
-
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-          <GuestsCard
-            guests={guests}
-            quickName={quickName}
-            onQuickName={setQuickName}
-            onQuickAdd={handleQuickAdd}
-            adding={adding}
-          />
-          <SeatingCard tables={tables} assignments={assignments} />
-          <BudgetCard lineItems={lineItems} settings={settings} />
-          <VendorsCard vendors={vendors} />
-          <TimelineCard items={items} />
-          <WebsiteCard site={site} />
+        {/* Header */}
+        <div className="mb-7">
+          <h1 className="font-serif font-light text-3xl text-ink leading-none">{greeting}</h1>
+          <p className="text-sm text-ink-faint mt-1.5">
+            {formatLongDate(now)} &nbsp;·&nbsp; Here&rsquo;s where everything stands
+          </p>
         </div>
+
+        {/* Countdown bar */}
+        <div className="bg-ink rounded-lg px-7 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          {cd && !cd.past ? (
+            <>
+              <span className="font-serif font-light italic text-bg text-base">Your wedding day</span>
+              <div className="flex gap-8">
+                <CountBlock n={cd.days} label="Days" />
+                <CountBlock n={cd.hours} label="Hours" />
+                <CountBlock n={cd.minutes} label="Minutes" />
+              </div>
+            </>
+          ) : cd && cd.past ? (
+            <span className="font-serif font-light italic text-bg text-base">
+              Married — congratulations! 🎉
+            </span>
+          ) : (
+            <>
+              <span className="font-serif font-light italic text-bg text-base">Your wedding day</span>
+              <Link href="/website" className="text-sm text-accent-soft hover:text-bg transition-colors">
+                Set your wedding date →
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Stat row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+          <StatCard label="Total guests" value={String(totalGuests)} sub={`${confirmed} confirmed`} href="/guests" />
+          <StatCard
+            label="Budget remaining"
+            value={target !== null ? formatMoney(Math.max(0, remaining ?? 0)) : formatMoney(basis)}
+            sub={target !== null ? `of ${formatMoney(target)} total` : 'spent · no target set'}
+            href="/budget"
+          />
+          <StatCard
+            label="Tasks complete"
+            value={`${doneTasks}/${totalTasks}`}
+            sub={totalTasks === 0 ? 'No tasks yet' : `${totalTasks - doneTasks} remaining`}
+          />
+        </div>
+
+        {/* Budget overview + RSVPs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+          <BudgetOverview lineItems={lineItems} categories={budgetCats} basis={basis} target={target} />
+          <RsvpCard guests={guests} />
+        </div>
+
+        {/* Tasks + Vendors + Notes */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <TasksCard workspaceId={workspaceId} tasks={tasks} />
+            <VendorsCard vendors={vendors} categories={vendorCats} />
+          </div>
+          <NotesCard workspaceId={workspaceId} notes={notes} />
+        </div>
+
       </div>
     </div>
   );
 }
 
-// ── Shared card shell ─────────────────────────────────────────────────────────
+// ── Small shared pieces ───────────────────────────────────────────────────────
 
-function Card({
-  title,
-  href,
-  linkLabel,
-  children,
-}: {
-  title: string;
-  href: string;
-  linkLabel: string;
-  children: React.ReactNode;
-}) {
+function CountBlock({ n, label }: { n: number; label: string }) {
   return (
-    <section className="border border-rule rounded-xl bg-white/60 p-5 flex flex-col">
+    <div className="text-center">
+      <div className="font-serif font-light text-3xl text-accent leading-none tabular-nums">{n}</div>
+      <div className="text-[0.6rem] text-bg/50 tracking-[0.08em] uppercase mt-1">{label}</div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, href }: { label: string; value: string; sub: string; href?: string }) {
+  const inner = (
+    <>
+      <div className="text-[0.62rem] text-ink-faint tracking-[0.08em] uppercase mb-1">{label}</div>
+      <div className="font-serif font-light text-3xl text-ink leading-none tabular-nums">{value}</div>
+      <div className="text-xs text-ink-faint mt-1">{sub}</div>
+    </>
+  );
+  const cls = 'bg-white border border-rule rounded-lg px-5 py-4 block';
+  return href ? (
+    <Link href={href} className={`${cls} hover:border-accent transition-colors`}>{inner}</Link>
+  ) : (
+    <div className={cls}>{inner}</div>
+  );
+}
+
+function CardShell({ label, href, linkLabel, children }: { label: string; href?: string; linkLabel?: string; children: React.ReactNode }) {
+  return (
+    <section className="bg-white border border-rule rounded-lg p-5 flex flex-col">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-serif text-lg text-ink">{title}</h2>
-        <Link href={href} className="text-xs text-ink-faint hover:text-ink-soft transition-colors shrink-0">
-          {linkLabel} →
-        </Link>
+        <div className="text-[0.62rem] text-ink-faint tracking-[0.08em] uppercase">{label}</div>
+        {href && linkLabel && (
+          <Link href={href} className="text-xs text-ink-faint hover:text-ink-soft transition-colors">{linkLabel} →</Link>
+        )}
       </div>
-      <div className="flex-1">{children}</div>
+      {children}
     </section>
   );
 }
 
-/** A small colored-dot stat, matching the module list styling. */
-function DotStat({ dot, label, value }: { dot: string; label: string; value: number }) {
+// ── Budget overview ───────────────────────────────────────────────────────────
+
+function BudgetOverview({
+  lineItems, categories, basis, target,
+}: {
+  lineItems: Doc<'budgetLineItems'>[] | undefined;
+  categories: Doc<'budgetCategories'>[] | undefined;
+  basis: number;
+  target: number | null;
+}) {
+  const loading = lineItems === undefined || categories === undefined;
   return (
-    <div className="flex items-center gap-1.5 text-sm text-ink-soft">
-      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-      <span className="tabular-nums text-ink font-medium">{value}</span>
-      <span className="text-ink-faint">{label}</span>
+    <CardShell label="Budget overview" href="/budget" linkLabel="View budget">
+      {loading ? (
+        <p className="text-sm text-ink-faint">Loading…</p>
+      ) : lineItems.length === 0 ? (
+        <p className="text-sm text-ink-faint">No budget items yet — start tracking estimates and payments.</p>
+      ) : (
+        (() => {
+          // Per-category spend (actual where known, else estimated).
+          const nameById = new Map(categories.map((c) => [c._id as string, c.name]));
+          const byCat = new Map<string, number>();
+          for (const item of lineItems) {
+            const amt = item.actualCost ?? item.estimatedCost;
+            byCat.set(item.categoryId, (byCat.get(item.categoryId) ?? 0) + amt);
+          }
+          const rows = [...byCat.entries()]
+            .map(([id, amt]) => ({ name: nameById.get(id) ?? 'Uncategorized', amt }))
+            .sort((a, b) => b.amt - a.amt)
+            .slice(0, 5);
+          const maxAmt = Math.max(1, ...rows.map((r) => r.amt));
+          const progress = target ? Math.min(100, (basis / target) * 100) : null;
+          return (
+            <>
+              <div className="flex justify-between items-baseline mb-1.5">
+                <span className="text-[0.78rem] text-ink-soft">Spent so far</span>
+                <span className="font-serif text-lg text-ink tabular-nums">{formatMoney(basis)}</span>
+              </div>
+              <div className="h-[3px] bg-bg-tint rounded mb-4">
+                {progress !== null && <div className="h-[3px] bg-accent rounded" style={{ width: `${progress}%` }} />}
+              </div>
+              <div className="flex flex-col gap-2">
+                {rows.map((r) => (
+                  <div key={r.name} className="flex items-center gap-2">
+                    <span className="text-xs text-ink-soft w-24 shrink-0 truncate">{r.name}</span>
+                    <span className="flex-1 h-[3px] bg-bg-tint rounded">
+                      <span className="block h-[3px] bg-accent rounded" style={{ width: `${(r.amt / maxAmt) * 100}%` }} />
+                    </span>
+                    <span className="text-xs text-ink-faint w-14 text-right shrink-0 tabular-nums">{formatMoney(r.amt)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        })()
+      )}
+    </CardShell>
+  );
+}
+
+// ── RSVPs ─────────────────────────────────────────────────────────────────────
+
+function RsvpCard({ guests }: { guests: Doc<'guests'>[] | undefined }) {
+  return (
+    <CardShell label="RSVPs" href="/guests" linkLabel="View guests">
+      {guests === undefined ? (
+        <p className="text-sm text-ink-faint">Loading…</p>
+      ) : guests.length === 0 ? (
+        <p className="text-sm text-ink-faint">No guests yet — build your guest list to track RSVPs.</p>
+      ) : (
+        (() => {
+          const total = guests.length;
+          const count = (s: string) => guests.filter((g) => rsvpStatusOf(g) === s).length;
+          const yes = count('yes'), maybe = count('maybe'), no = count('no'), pending = count('pending');
+          const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+          return (
+            <>
+              <div className="flex flex-col gap-2.5 mb-3">
+                <RsvpRow label="Coming" count={yes} pct={pct(yes)} fill="bg-emerald-500" />
+                <RsvpRow label="Maybe" count={maybe} pct={pct(maybe)} fill="bg-amber-500" />
+                <RsvpRow label="Declined" count={no} pct={pct(no)} fill="bg-rose-400" />
+              </div>
+              <div className="text-xs text-ink-faint">
+                {pending > 0 ? `${pending} guest${pending !== 1 ? 's' : ''} haven't responded yet` : 'Everyone has responded'}
+              </div>
+            </>
+          );
+        })()
+      )}
+    </CardShell>
+  );
+}
+
+function RsvpRow({ label, count, pct, fill }: { label: string; count: number; pct: number; fill: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="text-xs text-ink-soft w-14 shrink-0">{label}</span>
+      <span className="flex-1 h-1.5 bg-bg-tint rounded-full overflow-hidden">
+        <span className={`block h-1.5 rounded-full ${fill}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="text-xs text-ink-faint w-7 text-right shrink-0 tabular-nums">{count}</span>
     </div>
   );
 }
 
-function Loading() {
-  return <p className="text-sm text-ink-faint">Loading…</p>;
-}
+// ── Tasks (functional CRUD) ─────────────────────────────────────────────────
 
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-ink-faint">{children}</p>;
-}
+function TasksCard({ workspaceId, tasks }: { workspaceId: Doc<'workspaces'>['_id']; tasks: Doc<'tasks'>[] | undefined }) {
+  const addTask = useMutation(api.tasks.add);
+  const toggleTask = useMutation(api.tasks.toggle);
+  const removeTask = useMutation(api.tasks.remove);
 
-// ── Countdown hero ──────────────────────────────────────────────────────────
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState('');
 
-function CountdownHero({
-  weddingDate,
-  coupleNames,
-  workspaceName,
-  todayMs,
-  loading,
-}: {
-  weddingDate: string | null;
-  coupleNames: string | null;
-  workspaceName: string;
-  todayMs: number;
-  loading: boolean;
-}) {
-  const days = weddingDate ? daysUntil(weddingDate, todayMs) : null;
-  const title = coupleNames || workspaceName;
-
-  let headline: React.ReactNode;
-  let sub: React.ReactNode;
-
-  if (loading) {
-    headline = <span className="text-ink-faint">…</span>;
-    sub = null;
-  } else if (weddingDate && days !== null) {
-    if (days > 1) {
-      headline = <><span className="tabular-nums">{days}</span> days to go</>;
-    } else if (days === 1) {
-      headline = 'Tomorrow!';
-    } else if (days === 0) {
-      headline = 'Today — congratulations!';
-    } else {
-      headline = 'Married 🎉';
-    }
-    sub = <>{formatDate(weddingDate)}</>;
-  } else {
-    // Graceful degrade: no wedding date set anywhere.
-    headline = 'Set your wedding date';
-    sub = (
-      <Link href="/website" className="text-accent hover:underline">
-        Add it in your Wedding Website →
-      </Link>
-    );
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const t = title.trim();
+    if (!t) { setAdding(false); return; }
+    await addTask({ workspaceId, title: t });
+    setTitle('');
+    setAdding(false);
   }
 
   return (
-    <section className="border border-rule rounded-xl bg-white/60 px-6 py-10 text-center animate-fade-in">
-      <p className="text-xs font-medium tracking-[0.18em] uppercase text-accent mb-3">{title}</p>
-      <h1 className="font-serif font-light text-4xl sm:text-5xl text-ink leading-tight">{headline}</h1>
-      {sub && <p className="text-sm text-ink-soft mt-4">{sub}</p>}
-    </section>
-  );
-}
-
-// ── Guests ────────────────────────────────────────────────────────────────────
-
-function GuestsCard({
-  guests,
-  quickName,
-  onQuickName,
-  onQuickAdd,
-  adding,
-}: {
-  guests: Doc<'guests'>[] | undefined;
-  quickName: string;
-  onQuickName: (v: string) => void;
-  onQuickAdd: (e: FormEvent) => void;
-  adding: boolean;
-}) {
-  return (
-    <Card title="Guests" href="/guests" linkLabel="View list">
-      {guests === undefined ? (
-        <Loading />
-      ) : guests.length === 0 ? (
-        <EmptyHint>No guests yet — add your first below or in the Guest List.</EmptyHint>
+    <CardShell label="Tasks">
+      {tasks === undefined ? (
+        <p className="text-sm text-ink-faint">Loading…</p>
       ) : (
-        <>
-          <p className="text-3xl font-serif text-ink tabular-nums mb-3">
-            {guests.length}
-            <span className="text-sm text-ink-faint font-sans ml-2">
-              guest{guests.length !== 1 ? 's' : ''}
-            </span>
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            <DotStat dot={rsvpStyle('yes').dot}   label="attending" value={guests.filter(g => rsvpStatusOf(g) === 'yes').length} />
-            <DotStat dot={rsvpStyle('no').dot}    label="declined"  value={guests.filter(g => rsvpStatusOf(g) === 'no').length} />
-            <DotStat dot={rsvpStyle('pending').dot} label="awaiting" value={guests.filter(g => { const s = rsvpStatusOf(g); return s === 'pending' || s === 'maybe'; }).length} />
-          </div>
-        </>
-      )}
+        <div className="flex flex-col">
+          {tasks.map((task) => (
+            <div key={task._id} className="group flex items-center gap-2.5 py-1.5 border-b border-rule/60 last:border-b-0">
+              <button
+                onClick={() => toggleTask({ taskId: task._id })}
+                aria-label={task.done ? 'Mark not done' : 'Mark done'}
+                className={`w-3.5 h-3.5 rounded-sm border shrink-0 flex items-center justify-center transition-colors ${
+                  task.done ? 'bg-ink border-ink' : 'border-ink/25 hover:border-accent'
+                }`}
+              >
+                {task.done && (
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="var(--bg)" strokeWidth="1.2" strokeLinecap="round" /></svg>
+                )}
+              </button>
+              <span className={`text-[0.78rem] flex-1 ${task.done ? 'line-through text-ink-faint' : 'text-ink-soft'}`}>{task.title}</span>
+              <span className="text-[0.65rem] text-ink-faint shrink-0">{task.done ? 'Done' : task.dueDate ? dueShort(task.dueDate) : ''}</span>
+              <button
+                onClick={() => removeTask({ taskId: task._id })}
+                aria-label="Delete task"
+                className="text-ink-faint hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
 
-      {/* Light action: trivial single-field quick-add (reuses guests.create). */}
-      <form onSubmit={onQuickAdd} className="flex items-center gap-2 mt-4 pt-4 border-t border-rule">
-        <input
-          type="text"
-          value={quickName}
-          onChange={e => onQuickName(e.target.value)}
-          placeholder="Add a guest…"
-          aria-label="Quick add a guest by name"
-          className="app-input flex-1 text-sm px-3 py-2"
-        />
-        <button type="submit" disabled={adding || !quickName.trim()} className="btn btn-secondary text-sm px-3 py-2 shrink-0">
-          {adding ? 'Adding…' : 'Add'}
-        </button>
-      </form>
-    </Card>
-  );
-}
-
-// ── Seating Planner ───────────────────────────────────────────────────────────
-
-function SeatingCard({
-  tables,
-  assignments,
-}: {
-  tables: Doc<'tables'>[] | undefined;
-  assignments: Doc<'seatAssignments'>[] | undefined;
-}) {
-  const loading = tables === undefined || assignments === undefined;
-  return (
-    <Card title="Seating Planner" href="/seating" linkLabel="Open planner">
-      {loading ? (
-        <Loading />
-      ) : tables.length === 0 ? (
-        <EmptyHint>No tables yet — arrange your floor plan and seat your guests.</EmptyHint>
-      ) : (
-        (() => {
-          const capacity = tables.reduce((n, t) => n + t.seatCount, 0);
-          const seated = assignments.length;
-          return (
-            <>
-              <p className="text-3xl font-serif text-ink tabular-nums mb-3">
-                {tables.length}
-                <span className="text-sm text-ink-faint font-sans ml-2">
-                  table{tables.length !== 1 ? 's' : ''}
-                </span>
-              </p>
-              <p className="text-sm text-ink-soft">
-                <span className="text-ink font-medium tabular-nums">{seated}</span> of{' '}
-                <span className="text-ink font-medium tabular-nums">{capacity}</span> seat{capacity !== 1 ? 's' : ''} filled
-              </p>
-            </>
-          );
-        })()
-      )}
-    </Card>
-  );
-}
-
-// ── Budget ────────────────────────────────────────────────────────────────────
-
-function BudgetCard({
-  lineItems,
-  settings,
-}: {
-  lineItems: Doc<'budgetLineItems'>[] | undefined;
-  settings: Doc<'budgetSettings'> | null | undefined;
-}) {
-  const loading = lineItems === undefined || settings === undefined;
-  return (
-    <Card title="Budget" href="/budget" linkLabel="View budget">
-      {loading ? (
-        <Loading />
-      ) : lineItems.length === 0 ? (
-        <EmptyHint>No line items yet — start tracking estimates and payments.</EmptyHint>
-      ) : (
-        (() => {
-          const totals = sumTotals(lineItems);
-          const target = settings?.targetBudget ?? null;
-          const basis = totals.actual > 0 ? totals.actual : totals.estimated;
-          const remaining = target !== null ? target - basis : null;
-          const over = remaining !== null && remaining < 0;
-          return (
-            <>
-              <p className="text-3xl font-serif text-ink tabular-nums mb-1">{formatMoney(totals.estimated)}</p>
-              <p className="text-sm text-ink-faint mb-3">
-                estimated{totals.actual > 0 && <> · {formatMoney(totals.actual)} actual</>}
-              </p>
-              {target !== null ? (
-                <p className={`text-sm ${over ? 'text-accent' : 'text-ink-soft'}`}>
-                  {over
-                    ? <>Over target by {formatMoney(-(remaining ?? 0))}</>
-                    : <>{formatMoney(remaining ?? 0)} left of {formatMoney(target)} target</>}
-                </p>
-              ) : (
-                <p className="text-sm text-ink-faint">{formatMoney(totals.paid)} paid · no target set</p>
-              )}
-            </>
-          );
-        })()
-      )}
-    </Card>
-  );
-}
-
-// ── Vendors ─────────────────────────────────────────────────────────────────
-
-function VendorsCard({ vendors }: { vendors: Doc<'vendors'>[] | undefined }) {
-  return (
-    <Card title="Vendors" href="/vendors" linkLabel="View vendors">
-      {vendors === undefined ? (
-        <Loading />
-      ) : vendors.length === 0 ? (
-        <EmptyHint>No vendors yet — keep caterers, photographers, and venues in one place.</EmptyHint>
-      ) : (
-        <>
-          <p className="text-3xl font-serif text-ink tabular-nums mb-3">
-            {vendors.length}
-            <span className="text-sm text-ink-faint font-sans ml-2">
-              vendor{vendors.length !== 1 ? 's' : ''}
-            </span>
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            <DotStat dot={vendorStatusStyle('booked').dot}     label="booked"     value={vendors.filter(v => statusOf(v) === 'booked').length} />
-            <DotStat dot={vendorStatusStyle('contacted').dot}  label="contacted"  value={vendors.filter(v => statusOf(v) === 'contacted').length} />
-            <DotStat dot={vendorStatusStyle('researching').dot} label="researching" value={vendors.filter(v => statusOf(v) === 'researching').length} />
-          </div>
-        </>
-      )}
-    </Card>
-  );
-}
-
-// ── Timeline ────────────────────────────────────────────────────────────────
-
-function TimelineCard({ items }: { items: Doc<'timelineItems'>[] | undefined }) {
-  return (
-    <Card title="Day-of Timeline" href="/timeline" linkLabel="View timeline">
-      {items === undefined ? (
-        <Loading />
-      ) : items.length === 0 ? (
-        <EmptyHint>No events yet — build a time-ordered run-of-show for the day.</EmptyHint>
-      ) : (
-        (() => {
-          const first = [...items].sort((a, b) => a.time - b.time)[0];
-          return (
-            <>
-              <p className="text-3xl font-serif text-ink tabular-nums mb-3">
-                {items.length}
-                <span className="text-sm text-ink-faint font-sans ml-2">
-                  event{items.length !== 1 ? 's' : ''}
-                </span>
-              </p>
-              {first && (
-                <p className="text-sm text-ink-soft">
-                  Starts <span className="text-ink font-medium tabular-nums">{formatTime(first.time)}</span>
-                  <span className="text-ink-faint"> · {first.title}</span>
-                </p>
-              )}
-            </>
-          );
-        })()
-      )}
-    </Card>
-  );
-}
-
-// ── Wedding Website ───────────────────────────────────────────────────────────
-
-function WebsiteCard({ site }: { site: Doc<'weddingSites'> | null | undefined }) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return (
-    <Card title="Wedding Website" href="/website" linkLabel="Manage site">
-      {site === undefined ? (
-        <Loading />
-      ) : !site ? (
-        <EmptyHint>Not set up yet — create your public wedding page.</EmptyHint>
-      ) : (
-        <>
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`w-2 h-2 rounded-full ${site.published ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-            <span className="text-sm font-medium text-ink">
-              {site.published ? 'Published' : 'Draft — not visible yet'}
-            </span>
-          </div>
-          {site.published ? (
-            <a
-              href={`${origin}/w/${site.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-accent hover:underline break-all"
-            >
-              /w/{site.slug}
-            </a>
+          {adding ? (
+            <form onSubmit={submit} className="mt-2">
+              <input
+                autoFocus
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={submit}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setAdding(false); setTitle(''); } }}
+                placeholder="New task…"
+                className="app-input w-full text-sm px-2.5 py-1.5"
+              />
+            </form>
           ) : (
-            <p className="text-sm text-ink-faint">Publish it from the Wedding Website tab to share with guests.</p>
+            <button onClick={() => setAdding(true)} className="text-xs text-accent mt-3 self-start hover:opacity-80 transition-opacity">+ Add task</button>
           )}
-        </>
+        </div>
       )}
-    </Card>
+    </CardShell>
+  );
+}
+
+// ── Vendors ───────────────────────────────────────────────────────────────────
+
+function vendorBadge(status: string): { cls: string } {
+  switch (status) {
+    case 'booked': return { cls: 'bg-emerald-50 text-emerald-800' };
+    case 'contacted': return { cls: 'bg-amber-50 text-amber-800' };
+    case 'declined': return { cls: 'bg-rose-50 text-rose-700' };
+    default: return { cls: 'bg-bg-tint text-ink-soft' };
+  }
+}
+const VENDOR_STATUS_LABEL: Record<string, string> = {
+  booked: 'Booked', contacted: 'Contacted', researching: 'Researching', declined: 'Declined',
+};
+
+function VendorsCard({ vendors, categories }: { vendors: Doc<'vendors'>[] | undefined; categories: Doc<'vendorCategories'>[] | undefined }) {
+  return (
+    <CardShell label="Vendors" href="/vendors" linkLabel="View vendors">
+      {vendors === undefined || categories === undefined ? (
+        <p className="text-sm text-ink-faint">Loading…</p>
+      ) : vendors.length === 0 ? (
+        <p className="text-sm text-ink-faint">No vendors yet — keep caterers, photographers, and venues in one place.</p>
+      ) : (
+        <div className="flex flex-col">
+          {(() => {
+            const nameById = new Map(categories.map((c) => [c._id as string, c.name]));
+            return vendors.slice(0, 6).map((v) => {
+              const status = statusOf(v);
+              const badge = vendorBadge(status);
+              return (
+                <div key={v._id} className="flex items-center justify-between gap-2 py-1.5 border-b border-rule/60 last:border-b-0">
+                  <div className="min-w-0">
+                    <div className="text-[0.78rem] text-ink truncate">{v.name}</div>
+                    <div className="text-[0.68rem] text-ink-faint truncate">{v.categoryId ? nameById.get(v.categoryId) ?? 'Uncategorized' : 'Uncategorized'}</div>
+                  </div>
+                  <span className={`text-[0.6rem] font-medium px-2 py-0.5 rounded-sm shrink-0 ${badge.cls}`}>
+                    {VENDOR_STATUS_LABEL[status]}
+                  </span>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+    </CardShell>
+  );
+}
+
+// ── Notes / notebook (functional CRUD) ────────────────────────────────────────
+
+function NotesCard({ workspaceId, notes }: { workspaceId: Doc<'workspaces'>['_id']; notes: Doc<'notes'>[] | undefined }) {
+  const addNote = useMutation(api.notes.add);
+  const removeNote = useMutation(api.notes.remove);
+
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState('');
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const t = text.trim();
+    if (!t) { setAdding(false); return; }
+    await addNote({ workspaceId, text: t });
+    setText('');
+    setAdding(false);
+  }
+
+  return (
+    <section className="bg-bg-tint/50 border border-rule rounded-lg p-5 flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[0.62rem] text-ink-faint tracking-[0.08em] uppercase">Our notes</span>
+      </div>
+
+      {notes === undefined ? (
+        <p className="text-sm text-ink-faint">Loading…</p>
+      ) : (
+        <div className="flex flex-col">
+          {notes.length === 0 && !adding && (
+            <p className="text-[0.78rem] text-ink-faint">No notes yet — jot down ideas, reminders, and to-dos here.</p>
+          )}
+          {notes.map((note) => (
+            <div key={note._id} className="group py-2 border-b border-rule/60 last:border-b-0">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-serif italic text-[0.88rem] text-ink-soft leading-relaxed">{note.text}</p>
+                <button
+                  onClick={() => removeNote({ noteId: note._id })}
+                  aria-label="Delete note"
+                  className="text-ink-faint hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0 mt-0.5"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="text-[0.6rem] text-accent mt-0.5">{shortFromMs(note._creationTime)}</div>
+            </div>
+          ))}
+
+          {adding ? (
+            <form onSubmit={submit} className="mt-2">
+              <textarea
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onBlur={submit}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setAdding(false); setText(''); } }}
+                rows={2}
+                placeholder="Add a note…"
+                className="app-input w-full text-sm px-2.5 py-1.5 resize-y"
+              />
+            </form>
+          ) : (
+            <button onClick={() => setAdding(true)} className="text-xs text-accent mt-3 self-start hover:opacity-80 transition-opacity">+ Add a note</button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
