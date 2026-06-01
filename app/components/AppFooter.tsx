@@ -9,7 +9,7 @@ import Link from 'next/link';
 export default function AppFooter() {
   return (
     <footer className="grid grid-cols-3 items-center px-10 py-4 border-t border-rule text-xs text-ink-faint tracking-wide shrink-0">
-      <span className="justify-self-start">v1.10.2</span>
+      <span className="justify-self-start">v1.10.3</span>
       <Link
         href="/privacy"
         className="justify-self-center hover:text-ink-soft transition-colors"

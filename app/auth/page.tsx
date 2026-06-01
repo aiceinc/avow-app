@@ -141,11 +141,15 @@ export default function AuthPage() {
     <div id="top" className="min-h-screen bg-bg text-ink">
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-30 flex items-center justify-between gap-4 bg-ink px-6 sm:px-10 h-14">
-        <a href="#top" aria-label="Avow home" className="shrink-0">
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Avow home"
+          className="shrink-0"
+        >
           <span className="wordmark text-xl" style={{ color: 'var(--bg)' }}>
             avow<span className="dot" />
           </span>
-        </a>
+        </button>
 
         <div className="hidden md:flex items-stretch h-14 mx-2">
           <button onClick={() => scrollToId('features')} className="flex items-center px-4 text-[0.78rem] tracking-wide text-bg/55 hover:text-bg border-b-2 border-transparent transition-colors">Features</button>
@@ -194,8 +198,8 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Hero image */}
-        <div className="relative overflow-hidden bg-bg-tint min-h-[260px] md:min-h-[520px] border-l border-rule">
+        {/* Hero image — filleted bottom-left corner only */}
+        <div className="relative overflow-hidden bg-bg-tint min-h-[260px] md:min-h-[520px] border-l border-rule rounded-bl-[3rem]">
           <Image
             src="/hero.jpg"
             alt=""
@@ -211,15 +215,11 @@ export default function AuthPage() {
       <section id="features" className="max-w-5xl mx-auto px-6 sm:px-10 py-20 scroll-mt-14">
         <p className="text-xs font-medium tracking-[0.18em] uppercase text-accent text-center mb-4">Everything you need</p>
         <h2 className="font-serif font-light text-4xl text-center leading-tight mb-12">
-          Built for the way<br /><em className="italic">couples actually plan</em>
+          Built for the way<br />couples <em className="italic">actually</em> plan
         </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-rule border border-rule">
           {FEATURES.map((f) => (
-            <div key={f.n} className="bg-bg p-8">
-              <div className="font-serif text-sm text-accent mb-3">{f.n}</div>
-              <div className="text-sm font-medium text-ink mb-1.5">{f.name}</div>
-              <div className="text-[0.8rem] text-ink-soft leading-relaxed">{f.desc}</div>
-            </div>
+            <FeatureCell key={f.n} f={f} />
           ))}
         </div>
       </section>
@@ -304,7 +304,7 @@ export default function AuthPage() {
         <div className="flex items-center gap-7">
           <Link href="/privacy" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Privacy</Link>
           <a href="mailto:hello@avow.wedding" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Contact</a>
-          <span className="text-xs tracking-wide text-bg/30">v1.10.2 · © 2026 AICE Inc.</span>
+          <span className="text-xs tracking-wide text-bg/30">v1.10.3 · © 2026 AICE Inc.</span>
         </div>
       </footer>
 
@@ -382,6 +382,45 @@ export default function AuthPage() {
               </button>
             </form>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Feature cell (expandable, with a demo-video slot) ────────────────────────
+
+function FeatureCell({ f }: { f: { n: string; name: string; desc: string; video?: string } }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-bg p-8">
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full text-left">
+        <div className="font-serif text-sm text-accent mb-3">{f.n}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-medium text-ink">{f.name}</div>
+          <span className={`text-ink-faint text-xs shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+        </div>
+        <div className="text-[0.8rem] text-ink-soft leading-relaxed mt-1.5">{f.desc}</div>
+      </button>
+
+      {open && (
+        <div className="mt-4 animate-fade-in">
+          {f.video ? (
+            // Drop a short, muted, looping demo clip in /public and set `video` on
+            // the feature to enable this. (Ben to supply the clips.)
+            <video
+              src={f.video}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full rounded-md border border-rule"
+            />
+          ) : (
+            <div className="aspect-video bg-bg-tint rounded-md border border-rule flex items-center justify-center">
+              <span className="text-[0.65rem] tracking-[0.14em] uppercase text-ink-faint/70">Demo video coming soon</span>
+            </div>
+          )}
         </div>
       )}
     </div>
