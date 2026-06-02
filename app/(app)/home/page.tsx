@@ -23,6 +23,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Doc } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
+import AppFooter from '@/app/components/AppFooter';
 import { rsvpStatusOf } from '@/app/lib/guests';
 import { sumTotals, formatMoney } from '@/app/lib/budget';
 import { statusOf } from '@/app/lib/vendors';
@@ -100,9 +101,43 @@ export default function HomePage() {
 
   const cd = site?.weddingDate ? countdown(site.weddingDate, nowMs) : null;
 
+  // Wedding-date picker. The date lives on weddingSites.weddingDate — the same
+  // field the Wedding Website module reads/writes — so setting it here is the
+  // single source of truth the website pulls from. updateContent creates the
+  // site row on demand if it doesn't exist yet.
+  const updateContent = useMutation(api.weddingSite.updateContent);
+  const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [dateInput, setDateInput] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
+
+  function openDatePicker() {
+    setDateInput(site?.weddingDate ?? '');
+    setDateModalOpen(true);
+  }
+  async function saveDate() {
+    setSavingDate(true);
+    try {
+      await updateContent({ workspaceId, weddingDate: dateInput });
+      setDateModalOpen(false);
+    } finally {
+      setSavingDate(false);
+    }
+  }
+  async function clearDate() {
+    setSavingDate(true);
+    try {
+      await updateContent({ workspaceId, weddingDate: '' });
+      setDateModalOpen(false);
+    } finally {
+      setSavingDate(false);
+    }
+  }
+
   return (
+    <>
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-5xl mx-auto w-full px-6 py-8">
+      <div className="min-h-full flex flex-col">
+      <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-8">
 
         {/* Header */}
         <div className="mb-7">
@@ -112,28 +147,20 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Countdown bar */}
-        <div className="bg-ink rounded-lg px-7 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        {/* Wedding-date bar (same ink colour as the header/footer) */}
+        <div className="bg-ink rounded-lg px-7 py-5 flex items-center justify-center gap-8 mb-6 min-h-[88px]">
           {cd && !cd.past ? (
-            <>
-              <span className="font-serif font-light italic text-bg text-base">Your wedding day</span>
-              <div className="flex gap-8">
-                <CountBlock n={cd.days} label="Days" />
-                <CountBlock n={cd.hours} label="Hours" />
-                <CountBlock n={cd.minutes} label="Minutes" />
-              </div>
-            </>
+            <button onClick={openDatePicker} title="Change wedding date" className="flex gap-8">
+              <CountBlock n={cd.days} label="Days" />
+              <CountBlock n={cd.hours} label="Hours" />
+              <CountBlock n={cd.minutes} label="Minutes" />
+            </button>
           ) : cd && cd.past ? (
-            <span className="font-serif font-light italic text-bg text-base">
-              Married — congratulations! 🎉
-            </span>
+            <span className="font-serif font-light italic text-bg text-base">Married — congratulations! 🎉</span>
           ) : (
-            <>
-              <span className="font-serif font-light italic text-bg text-base">Your wedding day</span>
-              <Link href="/website" className="text-sm text-accent-soft hover:text-bg transition-colors">
-                Set your wedding date →
-              </Link>
-            </>
+            <button onClick={openDatePicker} className="text-sm text-bg/70 hover:text-bg transition-colors">
+              Set your wedding date →
+            </button>
           )}
         </div>
 
@@ -169,7 +196,47 @@ export default function HomePage() {
         </div>
 
       </div>
+      <AppFooter />
+      </div>
     </div>
+
+    {dateModalOpen && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+        style={{ background: 'rgba(26, 31, 46, 0.35)' }}
+        onClick={() => setDateModalOpen(false)}
+      >
+        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-xs w-full" onClick={(e) => e.stopPropagation()}>
+          <h2 className="font-serif text-xl text-ink mb-4">Wedding date</h2>
+          <input
+            autoFocus
+            type="date"
+            value={dateInput}
+            onChange={(e) => setDateInput(e.target.value)}
+            className="app-input w-full text-sm px-3 py-2.5 mb-4 tabular-nums"
+          />
+          <div className="flex items-center gap-2">
+            {site?.weddingDate && (
+              <button
+                type="button"
+                onClick={clearDate}
+                disabled={savingDate}
+                className="text-xs text-ink-faint hover:text-red-600 transition-colors mr-auto"
+              >
+                Clear date
+              </button>
+            )}
+            <button onClick={() => setDateModalOpen(false)} className="btn btn-secondary text-sm px-4 py-2 ml-auto">
+              Cancel
+            </button>
+            <button onClick={saveDate} disabled={savingDate} className="btn btn-primary text-sm px-4 py-2">
+              {savingDate ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

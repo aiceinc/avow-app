@@ -26,7 +26,6 @@ import WorkspaceScreen from '@/app/components/WorkspaceScreen';
 import { derivePartnerNames } from '@/app/lib/guests';
 import AppToolbar from '@/app/components/AppToolbar';
 import ModuleTabs from '@/app/components/ModuleTabs';
-import AppFooter from '@/app/components/AppFooter';
 
 const STORAGE_KEY = 'avow:workspaceId';
 
@@ -102,7 +101,6 @@ function WorkspaceGate({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           {children}
         </div>
-        <AppFooter />
       </div>
     </WorkspaceContext.Provider>
   );
