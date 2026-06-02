@@ -122,13 +122,30 @@ export default function AuthPage() {
     setAuthOpen(true);
   }
 
+  // A pricing CTA: remember the chosen plan, then open sign-up. After auth, the
+  // /account billing section picks it up (see post-auth routing in handleSubmit).
+  function choosePlan(tier: string, interval: string) {
+    try {
+      localStorage.setItem('avow:pendingPlan', JSON.stringify({ tier, interval }));
+    } catch {
+      /* ignore */
+    }
+    openAuth('signUp');
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       await signIn('password', { email, password, flow });
-      router.push('/');
+      let pendingPlan: string | null = null;
+      try {
+        pendingPlan = localStorage.getItem('avow:pendingPlan');
+      } catch {
+        /* ignore */
+      }
+      router.push(pendingPlan ? '/account' : '/');
     } catch (err: unknown) {
       const raw = err instanceof Error ? err.message : String(err);
       setError(friendlyError(raw, flow));
@@ -282,7 +299,7 @@ export default function AuthPage() {
 
         <div className="grid md:grid-cols-3 gap-6">
           {TIERS.map((t) => (
-            <PriceCard key={t.tier} tier={t} annual={annual} onChoose={() => openAuth('signUp')} />
+            <PriceCard key={t.tier} tier={t} annual={annual} onChoose={choosePlan} />
           ))}
         </div>
       </section>
@@ -420,7 +437,7 @@ function FeatureCell({ f }: { f: { n: string; name: string; desc: string; video?
 
 // ── Price card ──────────────────────────────────────────────────────────────
 
-function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; onChoose: () => void }) {
+function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; onChoose: (tier: string, interval: string) => void }) {
   const annualPerMonth = Math.round(tier.monthly * (1 - ANNUAL_DISCOUNT));
   const annualTotal = annualPerMonth * 12;
   return (
@@ -451,7 +468,7 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
         ))}
       </div>
       <button
-        onClick={onChoose}
+        onClick={() => onChoose(tier.tier.toLowerCase(), annual ? 'year' : 'month')}
         className={`block w-full text-center text-sm font-medium py-3 rounded-sm mt-6 tracking-wide transition-colors border ${
           tier.featured
             ? 'bg-ink text-bg border-ink hover:opacity-85'

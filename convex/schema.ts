@@ -28,11 +28,32 @@ export default defineSchema({
     inviteCodeExpiry: v.optional(v.number()), // Date.now() + 48h
     // Retention trigger (v1.9.0). Set when the workspace's subscription lapses;
     // the retention cron purges the workspace RETENTION_GRACE_DAYS later (see
-    // convex/retention.ts). Unset/undefined = active → NEVER purged. No billing
-    // system sets this yet, so it is unset on every workspace today and the
-    // retention job purges nothing in normal operation.
+    // convex/retention.ts). Unset/undefined = active → NEVER purged. As of
+    // v1.11.0 the Stripe billing webhook sets/clears this on lapse/resubscribe.
     subscriptionLapsedAt: v.optional(v.number()),
+    // Stripe customer for this workspace's billing (v1.11.0). Created on first
+    // checkout, reused thereafter (and for the customer portal).
+    stripeCustomerId: v.optional(v.string()),
   }),
+
+  // ── Subscriptions (Stripe billing, v1.11.0) ───────────────────────────────
+  // One row per workspace mirroring its Stripe subscription state, kept in sync
+  // by the Stripe webhook (convex/stripe.ts → convex/subscriptions.ts). Billing
+  // data is AUTHED-ONLY — never exposed via convex/public.ts. Workspace-scoped
+  // (in WORKSPACE_SCOPED_TABLES so deletion + retention purge it).
+  subscriptions: defineTable({
+    workspaceId: v.id("workspaces"),
+    stripeCustomerId: v.string(),
+    stripeSubscriptionId: v.string(),
+    status: v.string(),   // trialing | active | past_due | canceled | unpaid | incomplete | incomplete_expired | paused
+    tier: v.string(),     // standard | pro | planner
+    interval: v.string(), // month | year
+    currentPeriodEnd: v.optional(v.number()),  // unix seconds
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+    trialEnd: v.optional(v.number()),          // unix seconds
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
 
   // ── workspaceMembers ──────────────────────────────────────────────────────
   // Join table: which users belong to which workspace.

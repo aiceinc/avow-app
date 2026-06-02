@@ -10,6 +10,7 @@
 
 import type * as account from "../account.js";
 import type * as auth from "../auth.js";
+import type * as billingConfig from "../billingConfig.js";
 import type * as budget from "../budget.js";
 import type * as crons from "../crons.js";
 import type * as cursors from "../cursors.js";
@@ -20,6 +21,8 @@ import type * as notes from "../notes.js";
 import type * as public_ from "../public.js";
 import type * as retention from "../retention.js";
 import type * as seatAssignments from "../seatAssignments.js";
+import type * as stripe from "../stripe.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as tables from "../tables.js";
 import type * as tasks from "../tasks.js";
 import type * as timeline from "../timeline.js";
@@ -36,6 +39,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   account: typeof account;
   auth: typeof auth;
+  billingConfig: typeof billingConfig;
   budget: typeof budget;
   crons: typeof crons;
   cursors: typeof cursors;
@@ -46,6 +50,8 @@ declare const fullApi: ApiFromModules<{
   public: typeof public_;
   retention: typeof retention;
   seatAssignments: typeof seatAssignments;
+  stripe: typeof stripe;
+  subscriptions: typeof subscriptions;
   tables: typeof tables;
   tasks: typeof tasks;
   timeline: typeof timeline;

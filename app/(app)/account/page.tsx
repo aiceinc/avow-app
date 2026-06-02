@@ -9,12 +9,23 @@
  * by a type-to-confirm step because it is destructive and cannot be undone.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '@/convex/_generated/api';
 import { PRIVACY_CONTACT_EMAIL } from '@/app/lib/config';
+import { useWorkspace } from '@/app/components/WorkspaceContext';
+import {
+  TIERS,
+  type Tier,
+  type Interval,
+  isTier,
+  isInterval,
+  TRIAL_PERIOD_DAYS,
+  AUTO_RENEW_DISCLOSURE,
+  REFUND_POLICY_TEXT,
+} from '@/convex/billingConfig';
 
 export default function AccountPage() {
   const me = useQuery(api.workspaces.getMyUserId);
@@ -69,6 +80,9 @@ export default function AccountPage() {
             </dl>
           )}
         </section>
+
+        {/* Billing & subscription */}
+        <BillingSection />
 
         {/* Danger zone — delete account + data */}
         <section className="border border-red-200 rounded-xl bg-red-50/40 p-5">
@@ -134,5 +148,156 @@ export default function AccountPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// ── Billing & subscription (Stripe, v1.11.0) ─────────────────────────────────
+
+/** Plan a logged-out visitor chose on /auth before signing up (client-only). */
+function readPendingPlan(): { tier: Tier | null; interval: Interval | null } {
+  if (typeof window === 'undefined') return { tier: null, interval: null };
+  try {
+    const raw = localStorage.getItem('avow:pendingPlan');
+    if (raw) {
+      const p = JSON.parse(raw) as { tier?: string; interval?: string };
+      return {
+        tier: p.tier && isTier(p.tier) ? p.tier : null,
+        interval: p.interval && isInterval(p.interval) ? p.interval : null,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { tier: null, interval: null };
+}
+
+/** Notice shown after returning from Stripe Checkout (?billing=success|cancel). */
+function readBillingNotice(): string | null {
+  if (typeof window === 'undefined') return null;
+  const b = new URLSearchParams(window.location.search).get('billing');
+  if (b === 'success') return 'Thanks — your subscription is being set up. It may take a moment to appear here.';
+  if (b === 'cancel') return 'Checkout cancelled — no charge was made.';
+  return null;
+}
+
+function BillingSection() {
+  const { workspaceId } = useWorkspace();
+  const subscription = useQuery(api.subscriptions.getMy, { workspaceId });
+  const checkout = useAction(api.stripe.createCheckoutSession);
+  const portal = useAction(api.stripe.createPortalSession);
+
+  // Read client-only state via lazy initializers (this section renders only
+  // post-auth, never during SSR) so the effect below never calls setState.
+  const [interval, setIntervalState] = useState<Interval>(() => readPendingPlan().interval ?? 'month');
+  const [pendingTier] = useState<Tier | null>(() => readPendingPlan().tier);
+  const [notice] = useState<string | null>(() => readBillingNotice());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Consume the remembered plan once we've read it into state.
+    try {
+      localStorage.removeItem('avow:pendingPlan');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  async function subscribe(tier: Tier) {
+    setBusy(true);
+    setError(null);
+    try {
+      const { url } = await checkout({ workspaceId, tier, interval, origin: window.location.origin });
+      window.location.assign(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start checkout.');
+      setBusy(false);
+    }
+  }
+  async function manage() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { url } = await portal({ workspaceId, origin: window.location.origin });
+      window.location.assign(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open the billing portal.');
+      setBusy(false);
+    }
+  }
+
+  const live = subscription && ['active', 'trialing', 'past_due'].includes(subscription.status);
+  const tierName = (id: string) => TIERS.find((t) => t.id === id)?.name ?? id;
+
+  return (
+    <section className="border border-rule rounded-xl bg-white/60 p-5">
+      <h2 className="font-serif text-lg text-ink mb-3">Billing &amp; subscription</h2>
+      {notice && <p className="text-xs text-emerald-700 mb-3">{notice}</p>}
+
+      {subscription === undefined ? (
+        <p className="text-sm text-ink-faint">Loading…</p>
+      ) : live ? (
+        <div className="space-y-3">
+          <p className="text-sm text-ink-soft">
+            You&rsquo;re on the <strong className="text-ink">{tierName(subscription.tier)}</strong> plan
+            {' '}(<span className="text-ink">{subscription.status === 'trialing' ? 'free trial' : subscription.status}</span>,
+            billed {subscription.interval === 'year' ? 'annually' : 'monthly'}).
+          </p>
+          {subscription.currentPeriodEnd && (
+            <p className="text-xs text-ink-faint">
+              {subscription.cancelAtPeriodEnd
+                ? 'Cancels'
+                : subscription.status === 'trialing'
+                ? 'Trial ends'
+                : 'Renews'}{' '}
+              on {new Date(subscription.currentPeriodEnd * 1000).toLocaleDateString()}.
+            </p>
+          )}
+          <button onClick={manage} disabled={busy} className="btn btn-primary text-sm px-4 py-2">
+            {busy ? 'Opening…' : 'Manage billing'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className={`text-sm transition-colors ${interval === 'month' ? 'text-ink font-medium' : 'text-ink-soft'}`}>Monthly</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={interval === 'year'}
+              aria-label="Toggle annual billing"
+              onClick={() => setIntervalState((i) => (i === 'year' ? 'month' : 'year'))}
+              className={`relative w-11 h-6 rounded-full transition-colors ${interval === 'year' ? 'bg-ink' : 'bg-rule'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${interval === 'year' ? 'translate-x-5' : ''}`} />
+            </button>
+            <span className={`text-sm transition-colors ${interval === 'year' ? 'text-ink font-medium' : 'text-ink-soft'}`}>
+              Annually <span className="text-[0.65rem] text-emerald-700">save 20%</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {TIERS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => subscribe(t.id)}
+                disabled={busy}
+                className={`border rounded-lg px-4 py-3 text-left transition-colors disabled:opacity-60 ${
+                  pendingTier === t.id ? 'border-ink bg-bg-tint/40' : 'border-rule hover:border-accent'
+                }`}
+              >
+                <div className="text-sm font-medium text-ink">{t.name}</div>
+                <div className="text-xs text-ink-faint mt-0.5">Start {TRIAL_PERIOD_DAYS}-day trial →</div>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[0.7rem] text-ink-faint leading-relaxed">{AUTO_RENEW_DISCLOSURE}</p>
+          <p className="text-[0.7rem] text-ink-faint leading-relaxed">{REFUND_POLICY_TEXT}</p>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-600 mt-3">{error}</p>}
+    </section>
   );
 }
