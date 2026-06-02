@@ -1,6 +1,7 @@
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, trialEndsAtFor } from "./lib";
+import { TRIAL_PERIOD_DAYS } from "./billingConfig";
 
 /**
  * Subscriptions (Stripe billing, v1.11.0) — the Convex side of the webhook
@@ -29,8 +30,39 @@ export const getMy = query({
   },
 });
 
+/**
+ * The workspace's entitlement facts for the client UI (banners, paywall, trial
+ * countdown). Raw facts only — the client derives in/out-of-trial against its own
+ * clock so this stays a reactive query with no Date.now(). The authoritative
+ * write-time gate is assertCanEdit (convex/lib.ts).
+ */
+export const getEntitlement = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    await assertMember(ctx, args.workspaceId);
+    const ws = await ctx.db.get(args.workspaceId);
+    const subs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
+      .order("desc")
+      .take(50);
+    const live = subs.find((s) =>
+      ["active", "trialing", "past_due"].includes(s.status)
+    );
+    return {
+      trialEndsAt: ws ? trialEndsAtFor(ws) : 0, // unix ms
+      trialPeriodDays: TRIAL_PERIOD_DAYS,
+      hasSubscription: !!live,
+      subStatus: live?.status ?? null,
+      tier: live?.tier ?? null,
+      paymentFailed: !!(live && (live.status === "past_due" || live.paymentFailed)),
+    };
+  },
+});
+
 /** Auth-gated billing context for the Stripe actions: verifies the caller is a
- *  member of the workspace and returns the customer id + identity bits. */
+ *  member of the workspace and returns the customer id + identity bits + the
+ *  workspace creation time (so checkout can honour any remaining free-trial days). */
 export const getCheckoutContext = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
@@ -41,7 +73,22 @@ export const getCheckoutContext = internalQuery({
       stripeCustomerId: ws?.stripeCustomerId ?? null,
       email: user?.email ?? null,
       workspaceName: ws?.name ?? null,
+      trialEndsAt: ws ? trialEndsAtFor(ws) : 0, // unix ms
     };
+  },
+});
+
+/** Set/clear the payment-failed flag on a subscription (invoice.* webhooks). */
+export const setPaymentFailed = internalMutation({
+  args: { stripeSubscriptionId: v.string(), failed: v.boolean() },
+  handler: async (ctx, args) => {
+    const sub = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_stripeSubscriptionId", (q) =>
+        q.eq("stripeSubscriptionId", args.stripeSubscriptionId)
+      )
+      .unique();
+    if (sub) await ctx.db.patch(sub._id, { paymentFailed: args.failed });
   },
 });
 
@@ -78,6 +125,14 @@ export const upsertFromStripe = internalMutation({
         q.eq("stripeSubscriptionId", args.stripeSubscriptionId)
       )
       .unique();
+    // Keep paymentFailed consistent with status: a return to good standing
+    // clears it; past_due sets it; otherwise preserve whatever the invoice
+    // webhooks recorded.
+    const paymentFailed = ACTIVE_STATUSES.includes(args.status)
+      ? false
+      : args.status === "past_due"
+        ? true
+        : existing?.paymentFailed;
     const row = {
       workspaceId: args.workspaceId,
       stripeCustomerId: args.stripeCustomerId,
@@ -88,6 +143,7 @@ export const upsertFromStripe = internalMutation({
       currentPeriodEnd: args.currentPeriodEnd,
       cancelAtPeriodEnd: args.cancelAtPeriodEnd,
       trialEnd: args.trialEnd,
+      paymentFailed,
     };
     if (existing) {
       await ctx.db.patch(existing._id, row);

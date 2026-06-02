@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 // ── Shared validators ───────────────────────────────────────────────────────
 const sideValidator = v.union(
@@ -69,7 +69,7 @@ export const create = mutation({
     plusOneName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
 
     const name = args.name.trim();
     if (!name) throw new Error("Guest name is required");
@@ -107,7 +107,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
     if (!guest) throw new Error("Guest not found");
-    await assertMember(ctx, guest.workspaceId);
+    await assertCanEdit(ctx, guest.workspaceId);
 
     if (args.name !== undefined && !args.name.trim()) {
       throw new Error("Guest name cannot be empty");
@@ -144,7 +144,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
     if (!guest) throw new Error("Guest not found");
-    await assertMember(ctx, guest.workspaceId);
+    await assertCanEdit(ctx, guest.workspaceId);
 
     // Remove the guest's seat assignment first, if any.
     const assignment = await ctx.db

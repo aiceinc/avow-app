@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 /**
  * Tasks (v1.10.1) — a simple workspace-scoped checklist shown on the home
@@ -26,7 +26,7 @@ export const add = mutation({
     dueDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const title = args.title.trim();
     if (!title) throw new Error("Task title is required");
     return await ctx.db.insert("tasks", {
@@ -44,7 +44,7 @@ export const toggle = mutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
-    await assertMember(ctx, task.workspaceId);
+    await assertCanEdit(ctx, task.workspaceId);
     await ctx.db.patch(args.taskId, { done: !task.done });
   },
 });
@@ -54,7 +54,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
-    await assertMember(ctx, task.workspaceId);
+    await assertCanEdit(ctx, task.workspaceId);
     await ctx.db.delete(args.taskId);
   },
 });

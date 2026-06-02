@@ -44,6 +44,8 @@ const TIERS = [
   },
 ];
 
+// This is a standalone Node (CommonJS) utility, not part of the Next/ESM build.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Stripe = require('stripe');
 
 async function findOrCreateProduct(stripe, tier) {

@@ -1,6 +1,13 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { TRIAL_PERIOD_DAYS } from "./billingConfig";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Subscription statuses that grant edit access (active, in good standing, or in
+ *  the dunning grace window after a failed payment). */
+const EDIT_GRACE_STATUSES = ["active", "trialing", "past_due"];
 
 /**
  * Assert that the calling user is authenticated and a member of the given
@@ -35,6 +42,47 @@ export async function requireAuth(
 ): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Not authenticated");
+  return userId;
+}
+
+/** The unix-ms instant a workspace's free trial ends (creation + TRIAL_PERIOD_DAYS).
+ *  The trial is app-managed and needs no card — see convex/billingConfig.ts. */
+export function trialEndsAtFor(workspace: { _creationTime: number }): number {
+  return workspace._creationTime + TRIAL_PERIOD_DAYS * DAY_MS;
+}
+
+/**
+ * The HARD PAYWALL gate (v1.11.1). Assert the caller is a member AND the
+ * workspace is allowed to make edits — i.e. it's still inside the free trial OR
+ * has a live subscription (active / trialing / past-due grace). Otherwise the
+ * trial has lapsed with no subscription and the workspace is READ-ONLY: this
+ * throws, blocking every create/update/delete at the source. Reads are never
+ * gated (members can always VIEW what they created).
+ *
+ * Use in place of assertMember in mutations that create or modify content.
+ * (Mutation-only: relies on Date.now(), which Convex permits in mutations.)
+ */
+export async function assertCanEdit(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">
+): Promise<Id<"users">> {
+  const userId = await assertMember(ctx, workspaceId);
+
+  const ws = await ctx.db.get(workspaceId);
+  // Still within the free trial → always allowed.
+  if (ws && Date.now() < trialEndsAtFor(ws)) return userId;
+
+  // Trial over: require a live subscription.
+  const subs = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .take(50);
+  const live = subs.some((s) => EDIT_GRACE_STATUSES.includes(s.status));
+  if (!live) {
+    throw new Error(
+      "Your free trial has ended. Subscribe to keep editing your wedding plans."
+    );
+  }
   return userId;
 }
 

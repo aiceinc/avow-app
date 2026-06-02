@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 /**
  * Vendors module (v1.4.0). Mirrors the Budget Tracker's backend patterns:
@@ -67,6 +67,9 @@ export const listVendors = query({
  * Seed the default vendor categories for a workspace. Idempotent: if the
  * workspace already has any categories, this is a no-op (re-checked here so
  * concurrent first-visits can't double-seed). Mirrors budget.seedDefaultCategories.
+ *
+ * Membership-gated (not assertCanEdit): idempotent bootstrap fired on first view
+ * of the Vendors module, so a read-only (lapsed) workspace can still open the page.
  */
 export const seedDefaultCategories = mutation({
   args: { workspaceId: v.id("workspaces") },
@@ -95,7 +98,7 @@ export const seedDefaultCategories = mutation({
 export const addCategory = mutation({
   args: { workspaceId: v.id("workspaces"), name: v.string() },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const name = args.name.trim();
     if (!name) throw new Error("Category name is required");
 
@@ -119,7 +122,7 @@ export const renameCategory = mutation({
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
     if (!cat) throw new Error("Category not found");
-    await assertMember(ctx, cat.workspaceId);
+    await assertCanEdit(ctx, cat.workspaceId);
 
     const name = args.name.trim();
     if (!name) throw new Error("Category name cannot be empty");
@@ -137,7 +140,7 @@ export const removeCategory = mutation({
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
     if (!cat) throw new Error("Category not found");
-    await assertMember(ctx, cat.workspaceId);
+    await assertCanEdit(ctx, cat.workspaceId);
 
     const used = await ctx.db
       .query("vendors")
@@ -168,7 +171,7 @@ export const addVendor = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
 
     const name = args.name.trim();
     if (!name) throw new Error("Vendor name is required");
@@ -213,7 +216,7 @@ export const updateVendor = mutation({
   handler: async (ctx, args) => {
     const vendor = await ctx.db.get(args.vendorId);
     if (!vendor) throw new Error("Vendor not found");
-    await assertMember(ctx, vendor.workspaceId);
+    await assertCanEdit(ctx, vendor.workspaceId);
 
     if (args.name !== undefined && !args.name.trim()) {
       throw new Error("Vendor name cannot be empty");
@@ -255,7 +258,7 @@ export const removeVendor = mutation({
   handler: async (ctx, args) => {
     const vendor = await ctx.db.get(args.vendorId);
     if (!vendor) throw new Error("Vendor not found");
-    await assertMember(ctx, vendor.workspaceId);
+    await assertCanEdit(ctx, vendor.workspaceId);
 
     // Budget line items: clear the FK but preserve the name as legacy text so
     // the budget row still displays something meaningful.

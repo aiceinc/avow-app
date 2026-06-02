@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export const create = mutation({
     height: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     return await ctx.db.insert("tables", args);
   },
 });
@@ -61,7 +61,7 @@ export const createBatch = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const ids: string[] = [];
     for (const table of args.tables) {
       const id = await ctx.db.insert("tables", {
@@ -94,7 +94,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const table = await ctx.db.get(args.tableId);
     if (!table) throw new Error("Table not found");
-    await assertMember(ctx, table.workspaceId);
+    await assertCanEdit(ctx, table.workspaceId);
 
     const { tableId, ...fields } = args;
     await ctx.db.patch(tableId, fields);
@@ -109,7 +109,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const table = await ctx.db.get(args.tableId);
     if (!table) throw new Error("Table not found");
-    await assertMember(ctx, table.workspaceId);
+    await assertCanEdit(ctx, table.workspaceId);
 
     // Delete all seat assignments for this table first
     const assignments = await ctx.db
@@ -132,7 +132,7 @@ export const remove = mutation({
 export const clearAll = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
 
     const assignments = await ctx.db
       .query("seatAssignments")

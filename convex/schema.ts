@@ -51,6 +51,10 @@ export default defineSchema({
     currentPeriodEnd: v.optional(v.number()),  // unix seconds
     cancelAtPeriodEnd: v.optional(v.boolean()),
     trialEnd: v.optional(v.number()),          // unix seconds
+    // True when the most recent invoice failed to charge (set by the
+    // invoice.payment_failed webhook, cleared on payment_succeeded / a return to
+    // active). Drives the "update your card" banner. (v1.11.1)
+    paymentFailed: v.optional(v.boolean()),
   })
     .index("by_workspaceId", ["workspaceId"])
     .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),

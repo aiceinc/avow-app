@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 // ── Shared validators / helpers ─────────────────────────────────────────────
 
@@ -74,6 +74,10 @@ export const listLineItems = query({
  * Seed the 11 default categories for a workspace. Idempotent: if the workspace
  * already has any categories, this is a no-op (re-checked here so concurrent
  * first-visits can't double-seed).
+ *
+ * Membership-gated (not assertCanEdit): this is idempotent bootstrap fired on
+ * first view of the Budget module, so a read-only (lapsed) workspace can still
+ * open the page without erroring — it just won't re-seed.
  */
 export const seedDefaultCategories = mutation({
   args: { workspaceId: v.id("workspaces") },
@@ -109,7 +113,7 @@ export const setTarget = mutation({
     targetBudget: v.union(v.number(), v.null()),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
 
     const settings = await ctx.db
       .query("budgetSettings")
@@ -134,7 +138,7 @@ export const setTarget = mutation({
 export const addCategory = mutation({
   args: { workspaceId: v.id("workspaces"), name: v.string() },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const name = args.name.trim();
     if (!name) throw new Error("Category name is required");
 
@@ -158,7 +162,7 @@ export const renameCategory = mutation({
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
     if (!cat) throw new Error("Category not found");
-    await assertMember(ctx, cat.workspaceId);
+    await assertCanEdit(ctx, cat.workspaceId);
 
     const name = args.name.trim();
     if (!name) throw new Error("Category name cannot be empty");
@@ -176,7 +180,7 @@ export const removeCategory = mutation({
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
     if (!cat) throw new Error("Category not found");
-    await assertMember(ctx, cat.workspaceId);
+    await assertCanEdit(ctx, cat.workspaceId);
 
     const items = await ctx.db
       .query("budgetLineItems")
@@ -208,7 +212,7 @@ export const addLineItem = mutation({
     vendor: v.optional(v.string()), // legacy free text; vendorId is preferred
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
 
     const category = await ctx.db.get(args.categoryId);
     if (!category || category.workspaceId !== args.workspaceId) {
@@ -264,7 +268,7 @@ export const updateLineItem = mutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.lineItemId);
     if (!item) throw new Error("Line item not found");
-    await assertMember(ctx, item.workspaceId);
+    await assertCanEdit(ctx, item.workspaceId);
 
     if (args.name !== undefined && !args.name.trim()) {
       throw new Error("Line item name cannot be empty");
@@ -321,7 +325,7 @@ export const removeLineItem = mutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.lineItemId);
     if (!item) throw new Error("Line item not found");
-    await assertMember(ctx, item.workspaceId);
+    await assertCanEdit(ctx, item.workspaceId);
     await ctx.db.delete(args.lineItemId);
   },
 });

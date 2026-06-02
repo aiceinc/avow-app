@@ -7,8 +7,8 @@
  *  - Auth guard: not signed in → redirect to /auth.
  *  - Workspace selection: validate against membership, auto-select a lone
  *    workspace, persist the choice to localStorage, otherwise show the picker.
- *  - Provide the active workspace via WorkspaceContext.
- *  - Render the persistent toolbar + module tabs + footer around {children}.
+ *  - Provide the active workspace + billing entitlement via WorkspaceContext.
+ *  - Render the persistent toolbar + module tabs + billing banner around {children}.
  *
  * Because Next.js layouts don't remount when navigating between their child
  * routes, the selected workspace and all Convex subscriptions survive tab
@@ -21,13 +21,24 @@ import { useConvexAuth } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import WorkspaceContext from '@/app/components/WorkspaceContext';
+import WorkspaceContext, { type Entitlement } from '@/app/components/WorkspaceContext';
 import WorkspaceScreen from '@/app/components/WorkspaceScreen';
 import { derivePartnerNames } from '@/app/lib/guests';
 import AppToolbar from '@/app/components/AppToolbar';
 import ModuleTabs from '@/app/components/ModuleTabs';
+import BillingBanner from '@/app/components/BillingBanner';
 
 const STORAGE_KEY = 'avow:workspaceId';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const LOADING_ENTITLEMENT: Entitlement = {
+  status: 'loading',
+  canEdit: true, // don't flash the paywall before billing data loads
+  trialDaysLeft: 0,
+  trialEndsAt: null,
+  paymentFailed: false,
+  hasSubscription: false,
+};
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
@@ -92,16 +103,85 @@ function WorkspaceGate({ children }: { children: React.ReactNode }) {
   const partnerNames = derivePartnerNames(active.name);
 
   return (
+    <AppShell
+      workspaceId={effectiveId}
+      workspaceName={active.name}
+      partnerNames={partnerNames}
+      canSwitch={workspaces.length > 1}
+      switchWorkspace={switchWorkspace}
+    >
+      {children}
+    </AppShell>
+  );
+}
+
+/**
+ * The shell proper — only mounted once a workspace is selected, so the billing
+ * entitlement query runs with a real workspaceId (no conditional hooks above).
+ */
+function AppShell({
+  workspaceId,
+  workspaceName,
+  partnerNames,
+  canSwitch,
+  switchWorkspace,
+  children,
+}: {
+  workspaceId: Id<'workspaces'>;
+  workspaceName: string;
+  partnerNames: { a: string; b: string };
+  canSwitch: boolean;
+  switchWorkspace: () => void;
+  children: React.ReactNode;
+}) {
+  const ent = useQuery(api.subscriptions.getEntitlement, { workspaceId });
+  const entitlement = deriveEntitlement(ent);
+
+  return (
     <WorkspaceContext.Provider
-      value={{ workspaceId: effectiveId, workspaceName: active.name, partnerNames, switchWorkspace }}
+      value={{ workspaceId, workspaceName, partnerNames, switchWorkspace, entitlement }}
     >
       <div className="flex flex-col h-screen overflow-hidden bg-bg">
-        <AppToolbar canSwitch={workspaces.length > 1} />
+        <AppToolbar canSwitch={canSwitch} />
         <ModuleTabs />
+        <BillingBanner entitlement={entitlement} />
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           {children}
         </div>
       </div>
     </WorkspaceContext.Provider>
   );
+}
+
+/** Turn the raw getEntitlement facts into the derived state used by the UI. */
+function deriveEntitlement(
+  e:
+    | {
+        trialEndsAt: number;
+        hasSubscription: boolean;
+        subStatus: string | null;
+        paymentFailed: boolean;
+      }
+    | undefined
+): Entitlement {
+  if (e === undefined) return LOADING_ENTITLEMENT;
+  const now = Date.now();
+  const inTrial = now < e.trialEndsAt;
+  const trialDaysLeft = Math.max(0, Math.ceil((e.trialEndsAt - now) / DAY_MS));
+  const canEdit = e.hasSubscription || inTrial;
+  const status: Entitlement['status'] = e.hasSubscription
+    ? e.paymentFailed
+      ? 'past_due'
+      : 'active'
+    : inTrial
+    ? 'trial'
+    : 'locked';
+  return {
+    status,
+    canEdit,
+    trialDaysLeft,
+    trialEndsAt: e.trialEndsAt,
+    paymentFailed: e.paymentFailed,
+    hasSubscription: e.hasSubscription,
+  };
 }

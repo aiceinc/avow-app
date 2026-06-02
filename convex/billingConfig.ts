@@ -37,8 +37,17 @@ export function priceEnvVar(tier: Tier, interval: Interval): string {
 
 // ── Term parameters (fill-in-later set) ──────────────────────────────────────
 
-/** Card-required free-trial length (Stripe trial_period_days). Prep pack: 14 — NOT final. */
+/** Free-trial length in days. The trial is APP-MANAGED (per workspace, from its
+ *  creation time) and requires NO card — see TRIAL_REQUIRES_CARD. It simply ends
+ *  after this many days unless the couple adds a card and chooses a plan. */
 export const TRIAL_PERIOD_DAYS = 14;
+
+/** The free trial does NOT require a card. Stripe is only involved once the user
+ *  actively subscribes (adds a card + picks a plan); we never start a card-gated
+ *  Stripe trial. If they subscribe while still inside the free trial, the
+ *  remaining trial days are honoured (Checkout `trial_end`) so they aren't
+ *  charged early. (v1.11.1) */
+export const TRIAL_REQUIRES_CARD = false;
 
 /**
  * Cancellation behavior. 'period_end' (prep-pack default) keeps the subscription
@@ -58,7 +67,7 @@ export const REFUND_POLICY_TEXT =
  * this whole string when Brooke provides it.
  */
 export const AUTO_RENEW_DISCLOSURE =
-  `[PENDING LEGAL — placeholder, not final wording] Your subscription begins with a ${TRIAL_PERIOD_DAYS}-day free trial. ` +
-  `After the trial ends, your payment method is charged automatically and your plan renews automatically at the start of ` +
-  `each billing period at the then-current price until you cancel. You can cancel any time from your account; cancellation ` +
-  `takes effect at the end of the current billing period. By starting your trial you authorize these recurring charges.`;
+  `[PENDING LEGAL — placeholder, not final wording] By subscribing, your payment method will be charged for the plan you ` +
+  `selected, and your subscription renews automatically each billing period at the then-current price until you cancel. ` +
+  `If you subscribe while still inside your ${TRIAL_PERIOD_DAYS}-day free trial, you won't be charged until the trial ends. ` +
+  `You can cancel any time from your account; cancellation takes effect at the end of the current billing period.`;

@@ -16,13 +16,13 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '@/convex/_generated/api';
 import { PRIVACY_CONTACT_EMAIL } from '@/app/lib/config';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
+import AppFooter from '@/app/components/AppFooter';
 import {
   TIERS,
   type Tier,
   type Interval,
   isTier,
   isInterval,
-  TRIAL_PERIOD_DAYS,
   AUTO_RENEW_DISCLOSURE,
   REFUND_POLICY_TEXT,
 } from '@/convex/billingConfig';
@@ -57,7 +57,8 @@ export default function AccountPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-2xl mx-auto w-full px-6 py-8 space-y-6">
+      <div className="min-h-full flex flex-col">
+      <div className="flex-1 max-w-2xl mx-auto w-full px-6 py-8 space-y-6">
         <h1 className="font-serif text-2xl text-ink">Account</h1>
 
         {/* Identity */}
@@ -147,6 +148,8 @@ export default function AccountPage() {
           .
         </p>
       </div>
+      <AppFooter />
+      </div>
     </div>
   );
 }
@@ -181,7 +184,7 @@ function readBillingNotice(): string | null {
 }
 
 function BillingSection() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, entitlement } = useWorkspace();
   const subscription = useQuery(api.subscriptions.getMy, { workspaceId });
   const checkout = useAction(api.stripe.createCheckoutSession);
   const portal = useAction(api.stripe.createPortalSession);
@@ -259,6 +262,19 @@ function BillingSection() {
         </div>
       ) : (
         <div className="space-y-4">
+          {entitlement.status === 'locked' ? (
+            <p className="text-sm text-red-700">
+              Your free trial has ended — your wedding is read-only until you subscribe.
+            </p>
+          ) : entitlement.status === 'trial' ? (
+            <p className="text-sm text-ink-soft">
+              You&rsquo;re on a free trial —{' '}
+              <strong className="text-ink">
+                {entitlement.trialDaysLeft} day{entitlement.trialDaysLeft === 1 ? '' : 's'} left
+              </strong>
+              . No card needed until you choose a plan.
+            </p>
+          ) : null}
           <div className="flex items-center gap-3">
             <span className={`text-sm transition-colors ${interval === 'month' ? 'text-ink font-medium' : 'text-ink-soft'}`}>Monthly</span>
             <button
@@ -287,7 +303,7 @@ function BillingSection() {
                 }`}
               >
                 <div className="text-sm font-medium text-ink">{t.name}</div>
-                <div className="text-xs text-ink-faint mt-0.5">Start {TRIAL_PERIOD_DAYS}-day trial →</div>
+                <div className="text-xs text-ink-faint mt-0.5">Subscribe →</div>
               </button>
             ))}
           </div>

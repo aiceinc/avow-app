@@ -9,7 +9,6 @@ import {
   isTier,
   isInterval,
   priceEnvVar,
-  TRIAL_PERIOD_DAYS,
   AUTO_RENEW_DISCLOSURE,
 } from "./billingConfig";
 
@@ -62,12 +61,20 @@ export const createCheckoutSession = action({
       });
     }
 
+    // The free trial is app-managed and needs no card; we never start a Stripe
+    // trial here. But if the user subscribes while still inside their free trial,
+    // honour the remaining days via `trial_end` so they aren't billed early.
+    // Stripe requires trial_end to be >48h in the future, so below that we bill now.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const trialEndSec = Math.floor((conf.trialEndsAt ?? 0) / 1000);
+    const trialEnd = trialEndSec - nowSec > 48 * 3600 ? trialEndSec : undefined;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
-        trial_period_days: TRIAL_PERIOD_DAYS,
+        ...(trialEnd ? { trial_end: trialEnd } : {}),
         metadata: { workspaceId: args.workspaceId, tier: args.tier, interval: args.interval },
       },
       client_reference_id: args.workspaceId,
@@ -152,6 +159,27 @@ export const handleWebhook = internalAction({
         cancelAtPeriodEnd: sub.cancel_at_period_end ?? undefined,
         trialEnd: sub.trial_end ?? undefined,
       });
+    } else if (
+      event.type === "invoice.payment_failed" ||
+      event.type === "invoice.payment_succeeded"
+    ) {
+      // Flag/clear a failed payment so the app can surface an "update your card"
+      // banner. (subscription.updated also moves status to past_due, but this is
+      // the explicit, earliest signal.) Read the subscription id defensively
+      // across Stripe API shapes.
+      const invoice = event.data.object as Stripe.Invoice;
+      const raw =
+        (invoice as unknown as { subscription?: string | { id: string } }).subscription ??
+        (invoice as unknown as {
+          parent?: { subscription_details?: { subscription?: string | { id: string } } };
+        }).parent?.subscription_details?.subscription;
+      const subscriptionId = typeof raw === "string" ? raw : raw?.id;
+      if (subscriptionId) {
+        await ctx.runMutation(internal.subscriptions.setPaymentFailed, {
+          stripeSubscriptionId: subscriptionId,
+          failed: event.type === "invoice.payment_failed",
+        });
+      }
     }
 
     return { ok: true };

@@ -1,15 +1,16 @@
 import { mutation, query, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 /**
  * Wedding Website module (v1.6.0) — AUTHENTICATED editor functions.
  *
- * Every function here calls assertMember. The couple edits their site through
- * these. The PUBLIC, unauthenticated render + RSVP write-back live in a
- * separate file (convex/public.ts) that deliberately never imports assertMember
- * — keeping the public surface auditable at a glance.
+ * Every function here calls assertMember (reads/bootstrap) or assertCanEdit
+ * (content changes — gated by the trial/subscription paywall, v1.11.1). The
+ * couple edits their site through these. The PUBLIC, unauthenticated render +
+ * RSVP write-back live in a separate file (convex/public.ts) that deliberately
+ * never imports assertMember — keeping the public surface auditable at a glance.
  */
 
 // ── Slug helpers ──────────────────────────────────────────────────────────────
@@ -75,7 +76,9 @@ export const get = query({
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
-/** Create the site row on first visit (idempotent), with an auto-generated unique slug. */
+/** Create the site row on first visit (idempotent), with an auto-generated unique slug.
+ *  Membership-gated bootstrap (not assertCanEdit) so a read-only workspace can
+ *  still open the editor to view existing content. */
 export const initSite = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
@@ -96,7 +99,7 @@ export const updateContent = mutation({
     travelNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const site = await ensureSiteRow(ctx, args.workspaceId);
     await ctx.db.patch(site._id, {
       ...(args.coupleNames !== undefined ? { coupleNames: args.coupleNames.trim() || undefined } : {}),
@@ -113,7 +116,7 @@ export const updateContent = mutation({
 export const setSlug = mutation({
   args: { workspaceId: v.id("workspaces"), slug: v.string() },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const clean = slugify(args.slug);
     if (!clean) throw new Error("Enter a valid web address (letters and numbers).");
 
@@ -130,7 +133,7 @@ export const setSlug = mutation({
 export const setPublished = mutation({
   args: { workspaceId: v.id("workspaces"), published: v.boolean() },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const site = await ensureSiteRow(ctx, args.workspaceId);
     await ctx.db.patch(site._id, { published: args.published });
   },
@@ -139,6 +142,8 @@ export const setPublished = mutation({
 /**
  * Ensure a guest has an opaque RSVP token, generating one if missing. Returns
  * the token so the editor can build the /w/{slug}/rsvp/{token} invite link.
+ * Membership-gated (not assertCanEdit): minting a share token for existing
+ * guests is a read-side convenience, not content editing.
  */
 export const ensureGuestToken = mutation({
   args: { guestId: v.id("guests") },

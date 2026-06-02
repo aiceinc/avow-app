@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireAuth, assertMember } from "./lib";
+import { requireAuth, assertMember, assertCanEdit } from "./lib";
 
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 
@@ -117,7 +117,7 @@ export const create = mutation({
 export const generateInvite = mutation({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
 
     // Check current member count
     const members = await ctx.db

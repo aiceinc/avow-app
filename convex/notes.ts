@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember } from "./lib";
+import { assertMember, assertCanEdit } from "./lib";
 
 /**
  * Notes (v1.10.1) — free-text "notebook" entries shown on the home dashboard,
@@ -22,7 +22,7 @@ export const list = query({
 export const add = mutation({
   args: { workspaceId: v.id("workspaces"), text: v.string() },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    await assertCanEdit(ctx, args.workspaceId);
     const text = args.text.trim();
     if (!text) throw new Error("Note text is required");
     return await ctx.db.insert("notes", { workspaceId: args.workspaceId, text });
@@ -34,7 +34,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.noteId);
     if (!note) throw new Error("Note not found");
-    await assertMember(ctx, note.workspaceId);
+    await assertCanEdit(ctx, note.workspaceId);
     await ctx.db.delete(args.noteId);
   },
 });
