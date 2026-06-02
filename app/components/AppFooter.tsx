@@ -1,22 +1,22 @@
 import Link from 'next/link';
 
 /**
- * AppFooter — slim footer bar shown across the app.
- * Version (left) · Privacy Policy (centered) · copyright (right).
- * Mirrors the landing footer. Uses a 3-column grid so the Privacy Policy link
- * is truly centered regardless of the side items' widths.
+ * AppFooter — the shared dark footer (matches the /auth marketing footer).
+ * Wordmark (left) · Privacy + Contact + version/© (right), on bg-ink.
+ * Used across the app shell, /auth, and other surfaces so the footer is one
+ * consistent element everywhere.
  */
 export default function AppFooter() {
   return (
-    <footer className="grid grid-cols-3 items-center px-10 py-4 border-t border-rule text-xs text-ink-faint tracking-wide shrink-0">
-      <span className="justify-self-start">v1.10.3</span>
-      <Link
-        href="/privacy"
-        className="justify-self-center hover:text-ink-soft transition-colors"
-      >
-        Privacy Policy
-      </Link>
-      <span className="justify-self-end">© 2026 AICE Inc.</span>
+    <footer className="bg-ink px-6 sm:px-10 py-7 flex items-center justify-between gap-4 shrink-0">
+      <span className="wordmark text-base" style={{ color: 'rgba(250, 246, 240, 0.5)' }}>
+        avow<span className="dot" />
+      </span>
+      <div className="flex items-center gap-7">
+        <Link href="/privacy" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Privacy</Link>
+        <a href="mailto:hello@avow.wedding" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Contact</a>
+        <span className="text-xs tracking-wide text-bg/30">v1.10.4 · © 2026 AICE Inc.</span>
+      </div>
     </footer>
   );
 }

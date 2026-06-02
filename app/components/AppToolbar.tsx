@@ -12,7 +12,6 @@ import { useQuery, useMutation } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
-import Wordmark from './Wordmark';
 import { useWorkspace } from './WorkspaceContext';
 
 export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
@@ -47,38 +46,40 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-rule bg-bg/80 backdrop-blur-sm shrink-0 z-10">
-      <Link href="/home" aria-label="Go to Home" className="mr-1 hover:opacity-80 transition-opacity">
-        <Wordmark className="text-lg" />
+    <div className="flex items-center gap-2 px-6 sm:px-10 h-14 bg-ink shrink-0 z-10">
+      <Link href="/home" aria-label="Go to Home" className="shrink-0 hover:opacity-80 transition-opacity">
+        <span className="wordmark text-xl" style={{ color: 'var(--bg)' }}>
+          avow<span className="dot" />
+        </span>
       </Link>
-      <span className="text-ink-faint/50 text-sm">·</span>
-      <span className="text-ink-soft text-sm mr-3">{workspaceName}</span>
+      <span className="text-bg/30 text-sm">·</span>
+      <span className="text-bg/70 text-sm mr-3">{workspaceName}</span>
 
       {/* Invite partner */}
       {!inviteCode ? (
         <button
           onClick={handleGenerateInvite}
-          className="btn btn-secondary text-sm px-3 py-1.5"
+          className="text-[0.78rem] font-medium tracking-wide text-bg border border-bg/35 rounded-sm px-3.5 py-1.5 hover:bg-bg hover:text-ink transition-colors"
         >
           Invite your partner
         </button>
       ) : (
         <div className="flex items-center gap-1.5">
-          <code className="text-xs bg-bg-tint border border-accent-soft text-ink-soft px-2 py-1 rounded font-mono">
+          <code className="text-xs bg-bg/10 border border-bg/25 text-bg/80 px-2 py-1 rounded font-mono">
             {`/invite?code=${inviteCode}`}
           </code>
           <button
             onClick={handleCopyInvite}
-            className="btn btn-secondary text-xs px-2 py-1"
+            className="text-[0.78rem] text-bg/70 hover:text-bg transition-colors px-1"
           >
             {inviteCopied ? '✓ Copied' : 'Copy link'}
           </button>
         </div>
       )}
 
-      {/* Right side: stats + switch + sign out */}
+      {/* Right side: stats + switch + account + sign out */}
       <div className="ml-auto flex items-center gap-4">
-        <div className="text-xs text-ink-faint">
+        <div className="text-xs text-bg/45">
           {tables.length} table{tables.length !== 1 ? 's' : ''} ·{' '}
           {guests.length} guest{guests.length !== 1 ? 's' : ''} ·{' '}
           {assignments.length} seated
@@ -86,20 +87,20 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
         {canSwitch && (
           <button
             onClick={switchWorkspace}
-            className="text-xs text-ink-faint hover:text-ink-soft transition-colors"
+            className="text-xs text-bg/60 hover:text-bg transition-colors"
           >
             Switch
           </button>
         )}
         <Link
           href="/account"
-          className="text-xs text-ink-faint hover:text-ink-soft transition-colors"
+          className="text-xs text-bg/60 hover:text-bg transition-colors"
         >
           Account
         </Link>
         <button
           onClick={async () => { await signOut(); router.push('/auth'); }}
-          className="text-xs text-ink-faint hover:text-ink-soft transition-colors"
+          className="text-xs text-bg/60 hover:text-bg transition-colors"
         >
           Sign out
         </button>

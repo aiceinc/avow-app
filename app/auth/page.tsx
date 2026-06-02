@@ -21,8 +21,8 @@
 import { useState, FormEvent } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
+import AppFooter from '@/app/components/AppFooter';
 
 type Flow = 'signIn' | 'signUp';
 
@@ -296,17 +296,8 @@ export default function AuthPage() {
         <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">Get started</button>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="bg-ink px-6 sm:px-10 py-7 flex items-center justify-between gap-4">
-        <span className="wordmark text-base" style={{ color: 'rgba(250,246,240,0.5)' }}>
-          avow<span className="dot" />
-        </span>
-        <div className="flex items-center gap-7">
-          <Link href="/privacy" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Privacy</Link>
-          <a href="mailto:hello@avow.wedding" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Contact</a>
-          <span className="text-xs tracking-wide text-bg/30">v1.10.3 · © 2026 AICE Inc.</span>
-        </div>
-      </footer>
+      {/* ── Footer (shared dark footer) ─────────────────────────────────────── */}
+      <AppFooter />
 
       {/* ── Auth modal ──────────────────────────────────────────────────────── */}
       {authOpen && (
