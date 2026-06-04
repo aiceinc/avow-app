@@ -1,6 +1,6 @@
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, trialEndsAtFor } from "./lib";
+import { assertMember, trialEndsAtFor, workspaceHasPlannerMember } from "./lib";
 import { TRIAL_PERIOD_DAYS } from "./billingConfig";
 
 /**
@@ -49,13 +49,20 @@ export const getEntitlement = query({
     const live = subs.find((s) =>
       ["active", "trialing", "past_due"].includes(s.status)
     );
+    // Account-level Planner: a member's Planner plan covers this workspace at
+    // Pro level even without its own subscription.
+    const plannerCovered = await workspaceHasPlannerMember(ctx, args.workspaceId);
     return {
       trialEndsAt: ws ? trialEndsAtFor(ws) : 0, // unix ms
       trialPeriodDays: TRIAL_PERIOD_DAYS,
-      hasSubscription: !!live,
-      subStatus: live?.status ?? null,
-      tier: live?.tier ?? null,
-      paymentFailed: !!(live && (live.status === "past_due" || live.paymentFailed)),
+      hasSubscription: plannerCovered || !!live,
+      subStatus: plannerCovered ? "active" : live?.status ?? null,
+      tier: plannerCovered ? "planner" : live?.tier ?? null,
+      // True only when this workspace has its OWN subscription covered by a Planner
+      // plan held elsewhere (no own sub row), so the UI can show an info note.
+      plannerCovered: plannerCovered && !live,
+      paymentFailed:
+        !plannerCovered && !!(live && (live.status === "past_due" || live.paymentFailed)),
     };
   },
 });
@@ -70,6 +77,7 @@ export const getCheckoutContext = internalQuery({
     const user = await ctx.db.get(userId);
     const ws = await ctx.db.get(args.workspaceId);
     return {
+      userId, // buyer — recorded as the subscription's ownerUserId (Planner coverage)
       stripeCustomerId: ws?.stripeCustomerId ?? null,
       email: user?.email ?? null,
       workspaceName: ws?.name ?? null,
@@ -117,6 +125,7 @@ export const upsertFromStripe = internalMutation({
     currentPeriodEnd: v.optional(v.number()),
     cancelAtPeriodEnd: v.optional(v.boolean()),
     trialEnd: v.optional(v.number()),
+    ownerUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -144,6 +153,8 @@ export const upsertFromStripe = internalMutation({
       cancelAtPeriodEnd: args.cancelAtPeriodEnd,
       trialEnd: args.trialEnd,
       paymentFailed,
+      // Preserve the buyer attribution across updates if a later event omits it.
+      ownerUserId: args.ownerUserId ?? existing?.ownerUserId,
     };
     if (existing) {
       await ctx.db.patch(existing._id, row);

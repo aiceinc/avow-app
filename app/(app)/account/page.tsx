@@ -231,6 +231,8 @@ function BillingSection() {
 
   const live = subscription && ['active', 'trialing', 'past_due'].includes(subscription.status);
   const tierName = (id: string) => TIERS.find((t) => t.id === id)?.name ?? id;
+  // This workspace has no own subscription but is covered by a member's Planner plan.
+  const coveredByPlanner = !live && entitlement.tier === 'planner';
 
   return (
     <section className="border border-rule rounded-xl bg-white/60 p-5">
@@ -259,6 +261,15 @@ function BillingSection() {
           <button onClick={manage} disabled={busy} className="btn btn-primary text-sm px-4 py-2">
             {busy ? 'Opening…' : 'Manage billing'}
           </button>
+        </div>
+      ) : coveredByPlanner ? (
+        <div className="space-y-2">
+          <p className="text-sm text-ink-soft">
+            This wedding is included in your <strong className="text-ink">Planner</strong> plan — all features are unlocked.
+          </p>
+          <p className="text-xs text-ink-faint">
+            Manage your Planner subscription from the wedding where you set it up.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">

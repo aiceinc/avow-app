@@ -213,6 +213,7 @@ export default function GuestsPage() {
                     guest={g}
                     partnerNames={partnerNames}
                     seatedAt={seatByGuest.get(g._id)}
+                    canEdit={entitlement.canEdit}
                     onEdit={() => openEdit(g)}
                     onDelete={() => setDeleting(g)}
                   />
@@ -246,12 +247,14 @@ function GuestRow({
   guest,
   partnerNames,
   seatedAt,
+  canEdit,
   onEdit,
   onDelete,
 }: {
   guest: Doc<'guests'>;
   partnerNames: PartnerNames;
   seatedAt?: string;
+  canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -292,23 +295,25 @@ function GuestRow({
         {rsvp.label}
       </span>
 
-      {/* Actions — appear on hover/focus */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button
-          onClick={onEdit}
-          className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors"
-          aria-label={`Edit ${guest.name}`}
-        >
-          Edit
-        </button>
-        <button
-          onClick={onDelete}
-          className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors"
-          aria-label={`Delete ${guest.name}`}
-        >
-          Delete
-        </button>
-      </div>
+      {/* Actions — appear on hover/focus (hidden when the workspace is read-only) */}
+      {canEdit && (
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={onEdit}
+            className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors"
+            aria-label={`Edit ${guest.name}`}
+          >
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors"
+            aria-label={`Delete ${guest.name}`}
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </li>
   );
 }

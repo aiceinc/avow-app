@@ -1,7 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireAuth, assertMember, assertCanEdit } from "./lib";
+import {
+  requireAuth,
+  assertMember,
+  assertCanEdit,
+  userHasActivePlanner,
+  PLANNER_WORKSPACE_LIMIT,
+} from "./lib";
 
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 
@@ -93,6 +99,20 @@ export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+
+    // Planner plans cover up to PLANNER_WORKSPACE_LIMIT weddings. Cap creation
+    // for a Planner account once they're already in that many workspaces.
+    if (await userHasActivePlanner(ctx, userId)) {
+      const mine = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .take(PLANNER_WORKSPACE_LIMIT + 1);
+      if (mine.length >= PLANNER_WORKSPACE_LIMIT) {
+        throw new Error(
+          `Your Planner plan covers up to ${PLANNER_WORKSPACE_LIMIT} weddings.`
+        );
+      }
+    }
 
     // Create the workspace
     const workspaceId = await ctx.db.insert("workspaces", {

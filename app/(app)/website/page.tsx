@@ -19,7 +19,8 @@ import { formatTime } from '@/app/lib/timeline';
 import { rsvpStatusOf, rsvpStyle } from '@/app/lib/guests';
 
 export default function WebsitePage() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, entitlement } = useWorkspace();
+  const canEdit = entitlement.canEdit;
 
   const site    = useQuery(api.weddingSite.get,    { workspaceId });
   const items   = useQuery(api.timeline.listItems, { workspaceId }) ?? [];
@@ -54,8 +55,8 @@ export default function WebsitePage() {
           <p className="text-sm text-ink-faint py-12 text-center">Setting up your site…</p>
         ) : (
           <>
-            <PublishCard site={site} onSetSlug={(slug) => setSlug({ workspaceId, slug })} onSetPublished={(p) => setPublished({ workspaceId, published: p })} />
-            <ContentCard site={site} onSave={(values) => updateContent({ workspaceId, ...values })} />
+            <PublishCard site={site} canEdit={canEdit} onSetSlug={(slug) => setSlug({ workspaceId, slug })} onSetPublished={(p) => setPublished({ workspaceId, published: p })} />
+            <ContentCard site={site} canEdit={canEdit} onSave={(values) => updateContent({ workspaceId, ...values })} />
             <ScheduleCard items={items} onToggle={(itemId, isPublic) => updateItem({ itemId, isPublic })} />
             <RsvpCard guests={guests} slug={site.slug} onEnsureToken={(guestId) => ensureToken({ guestId })} />
           </>
@@ -69,10 +70,12 @@ export default function WebsitePage() {
 
 function PublishCard({
   site,
+  canEdit,
   onSetSlug,
   onSetPublished,
 }: {
   site: Doc<'weddingSites'>;
+  canEdit: boolean;
   onSetSlug: (slug: string) => Promise<string>;
   onSetPublished: (published: boolean) => Promise<unknown>;
 }) {
@@ -109,7 +112,8 @@ function PublishCard({
         </div>
         <button
           onClick={() => onSetPublished(!site.published)}
-          className={`btn text-sm px-4 py-2 ${site.published ? 'btn-secondary' : 'btn-primary'}`}
+          disabled={!canEdit}
+          className={`btn text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed ${site.published ? 'btn-secondary' : 'btn-primary'}`}
         >
           {site.published ? 'Unpublish' : 'Publish'}
         </button>
@@ -158,9 +162,11 @@ type ContentValues = {
 
 function ContentCard({
   site,
+  canEdit,
   onSave,
 }: {
   site: Doc<'weddingSites'>;
+  canEdit: boolean;
   onSave: (values: ContentValues) => Promise<unknown>;
 }) {
   const [v, setV] = useState<ContentValues>({
@@ -217,7 +223,7 @@ function ContentCard({
       </Field>
 
       <div className="flex items-center gap-3">
-        <button onClick={save} disabled={saving} className="btn btn-primary text-sm px-4 py-2">{saving ? 'Saving…' : 'Save content'}</button>
+        <button onClick={save} disabled={saving || !canEdit} className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Saving…' : 'Save content'}</button>
         {saved && <span className="text-xs text-emerald-700">Saved</span>}
       </div>
     </section>

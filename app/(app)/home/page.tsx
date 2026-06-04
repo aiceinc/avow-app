@@ -416,8 +416,9 @@ function TasksCard({ workspaceId, tasks, canEdit }: { workspaceId: Doc<'workspac
             <div key={task._id} className="group flex items-center gap-2.5 py-1.5 border-b border-rule/60 last:border-b-0">
               <button
                 onClick={() => toggleTask({ taskId: task._id })}
+                disabled={!canEdit}
                 aria-label={task.done ? 'Mark not done' : 'Mark done'}
-                className={`w-3.5 h-3.5 rounded-sm border shrink-0 flex items-center justify-center transition-colors ${
+                className={`w-3.5 h-3.5 rounded-sm border shrink-0 flex items-center justify-center transition-colors disabled:cursor-default ${
                   task.done ? 'bg-ink border-ink' : 'border-ink/25 hover:border-accent'
                 }`}
               >
@@ -427,13 +428,15 @@ function TasksCard({ workspaceId, tasks, canEdit }: { workspaceId: Doc<'workspac
               </button>
               <span className={`text-[0.78rem] flex-1 ${task.done ? 'line-through text-ink-faint' : 'text-ink-soft'}`}>{task.title}</span>
               <span className="text-[0.65rem] text-ink-faint shrink-0">{task.done ? 'Done' : task.dueDate ? dueShort(task.dueDate) : ''}</span>
-              <button
-                onClick={() => removeTask({ taskId: task._id })}
-                aria-label="Delete task"
-                className="text-ink-faint hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0"
-              >
-                ✕
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => removeTask({ taskId: task._id })}
+                  aria-label="Delete task"
+                  className="text-ink-faint hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
 
@@ -541,13 +544,15 @@ function NotesCard({ workspaceId, notes, canEdit }: { workspaceId: Doc<'workspac
             <div key={note._id} className="group py-2 border-b border-rule/60 last:border-b-0">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-serif italic text-[0.88rem] text-ink-soft leading-relaxed">{note.text}</p>
-                <button
-                  onClick={() => removeNote({ noteId: note._id })}
-                  aria-label="Delete note"
-                  className="text-ink-faint hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0 mt-0.5"
-                >
-                  ✕
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => removeNote({ noteId: note._id })}
+                    aria-label="Delete note"
+                    className="text-ink-faint hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0 mt-0.5"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
               <div className="text-[0.6rem] text-accent mt-0.5">{shortFromMs(note._creationTime)}</div>
             </div>

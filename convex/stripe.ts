@@ -75,7 +75,12 @@ export const createCheckoutSession = action({
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         ...(trialEnd ? { trial_end: trialEnd } : {}),
-        metadata: { workspaceId: args.workspaceId, tier: args.tier, interval: args.interval },
+        metadata: {
+          workspaceId: args.workspaceId,
+          tier: args.tier,
+          interval: args.interval,
+          userId: conf.userId, // buyer → ownerUserId (account-level Planner coverage)
+        },
       },
       client_reference_id: args.workspaceId,
       success_url: `${args.origin}/account?billing=success`,
@@ -148,6 +153,7 @@ export const handleWebhook = internalAction({
         item?.current_period_end ??
         (sub as unknown as { current_period_end?: number }).current_period_end;
 
+      const ownerUserId = sub.metadata?.userId;
       await ctx.runMutation(internal.subscriptions.upsertFromStripe, {
         workspaceId: workspaceId as Id<"workspaces">,
         stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
@@ -158,6 +164,7 @@ export const handleWebhook = internalAction({
         currentPeriodEnd: periodEnd ?? undefined,
         cancelAtPeriodEnd: sub.cancel_at_period_end ?? undefined,
         trialEnd: sub.trial_end ?? undefined,
+        ownerUserId: ownerUserId ? (ownerUserId as Id<"users">) : undefined,
       });
     } else if (
       event.type === "invoice.payment_failed" ||

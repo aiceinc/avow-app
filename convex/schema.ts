@@ -55,9 +55,15 @@ export default defineSchema({
     // invoice.payment_failed webhook, cleared on payment_succeeded / a return to
     // active). Drives the "update your card" banner. (v1.11.1)
     paymentFailed: v.optional(v.boolean()),
+    // The user who purchased this subscription (captured at checkout). Used for
+    // account-level Planner coverage: a Planner plan unlocks Pro features across
+    // up to PLANNER_WORKSPACE_LIMIT weddings owned by this user. (v1.13.0)
+    // Optional — rows created before v1.13.0 won't have it.
+    ownerUserId: v.optional(v.id("users")),
   })
     .index("by_workspaceId", ["workspaceId"])
-    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"])
+    .index("by_ownerUserId", ["ownerUserId"]),
 
   // ── workspaceMembers ──────────────────────────────────────────────────────
   // Join table: which users belong to which workspace.

@@ -84,10 +84,50 @@ const TRIAL_ENDED_MESSAGE =
  * Date.now). `tier` is the live subscription's tier, or TRIAL_TIER while in the
  * free trial, or null when locked (trial over, no live subscription).
  */
+/** Max weddings (workspaces) a single Planner plan covers. */
+export const PLANNER_WORKSPACE_LIMIT = 10;
+
+/** True if `userId` holds an active (incl. dunning-grace) Planner subscription —
+ *  i.e. they are a Planner account whose plan covers up to PLANNER_WORKSPACE_LIMIT
+ *  weddings. Works in query or mutation context. */
+export async function userHasActivePlanner(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const subs = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", userId))
+    .take(20);
+  return subs.some(
+    (s) => s.tier === "planner" && EDIT_GRACE_STATUSES.includes(s.status)
+  );
+}
+
+/** True if any member of the workspace is a Planner account (so the workspace is
+ *  covered by that planner's plan — Pro-level features). */
+export async function workspaceHasPlannerMember(
+  ctx: QueryCtx | MutationCtx,
+  workspaceId: Id<"workspaces">
+): Promise<boolean> {
+  const members = await ctx.db
+    .query("workspaceMembers")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .take(5);
+  for (const m of members) {
+    if (await userHasActivePlanner(ctx, m.userId)) return true;
+  }
+  return false;
+}
+
 async function computeAccess(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">
 ): Promise<{ tier: Tier | null; canEdit: boolean }> {
+  // Account-level Planner coverage is the strongest grant — a member's Planner
+  // plan unlocks Pro-level features here regardless of this workspace's own sub.
+  if (await workspaceHasPlannerMember(ctx, workspaceId)) {
+    return { tier: "planner", canEdit: true };
+  }
   const subs = await ctx.db
     .query("subscriptions")
     .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
