@@ -2,8 +2,9 @@
 
 /**
  * AppToolbar — persistent top bar across all modules. Wordmark, workspace name,
- * invite-partner flow, live workspace stats, new-wedding, switch/sign-out. Reads
- * the active workspace from WorkspaceContext.
+ * invite-partner flow, live workspace stats, a "Switch workspace" hover dropdown
+ * (lists every wedding in the account + "+ New wedding"), and sign-out. Reads the
+ * active workspace from WorkspaceContext.
  */
 
 import { useState } from 'react';
@@ -16,12 +17,13 @@ import { useWorkspace } from './WorkspaceContext';
 
 const STORAGE_KEY = 'avow:workspaceId';
 
-export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
-  const { workspaceId, workspaceName, switchWorkspace } = useWorkspace();
+export default function AppToolbar() {
+  const { workspaceId, workspaceName } = useWorkspace();
 
   const tables      = useQuery(api.tables.list,          { workspaceId }) ?? [];
   const guests      = useQuery(api.guests.list,          { workspaceId }) ?? [];
   const assignments = useQuery(api.seatAssignments.list, { workspaceId }) ?? [];
+  const myWorkspaces = useQuery(api.workspaces.listMine) ?? [];
 
   const generateInvite = useMutation(api.workspaces.generateInvite);
   const createWorkspace = useMutation(api.workspaces.create);
@@ -54,6 +56,18 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
     });
   }
 
+  function switchTo(id: string) {
+    if (id === workspaceId) return;
+    window.localStorage.setItem(STORAGE_KEY, id);
+    window.location.assign('/home');
+  }
+
+  function openCreate() {
+    setNewName('');
+    setNewError(null);
+    setCreating(true);
+  }
+
   async function handleCreateWorkspace() {
     const name = newName.trim();
     if (!name || savingNew) return;
@@ -61,7 +75,6 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
     setNewError(null);
     try {
       const id = await createWorkspace({ name });
-      // Select the new wedding and reload into it.
       window.localStorage.setItem(STORAGE_KEY, id);
       window.location.assign('/home');
     } catch (err: unknown) {
@@ -72,7 +85,7 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
 
   return (
     <>
-      <div className="flex items-center gap-2 px-6 sm:px-10 h-14 bg-ink shrink-0 z-10">
+      <div className="relative z-30 flex items-center gap-2 px-6 sm:px-10 h-14 bg-ink shrink-0">
         <Link href="/home" aria-label="Go to Home" className="shrink-0 hover:opacity-80 transition-opacity">
           <span className="wordmark text-xl" style={{ color: 'var(--bg)' }}>
             avow<span className="dot" />
@@ -103,27 +116,50 @@ export default function AppToolbar({ canSwitch }: { canSwitch: boolean }) {
           </div>
         )}
 
-        {/* Right side: stats + new wedding + switch + account + sign out */}
+        {/* Right side: stats + switch-workspace dropdown + account + sign out */}
         <div className="ml-auto flex items-center gap-4">
           <div className="text-xs text-bg/45">
             {tables.length} table{tables.length !== 1 ? 's' : ''} ·{' '}
             {guests.length} guest{guests.length !== 1 ? 's' : ''} ·{' '}
             {assignments.length} seated
           </div>
-          <button
-            onClick={() => { setNewName(''); setNewError(null); setCreating(true); }}
-            className="text-xs text-bg/60 hover:text-bg transition-colors"
-          >
-            + New wedding
-          </button>
-          {canSwitch && (
-            <button
-              onClick={switchWorkspace}
-              className="text-xs text-bg/60 hover:text-bg transition-colors"
-            >
-              Switch
+
+          {/* Switch workspace — hover dropdown */}
+          <div className="relative group">
+            <button className="flex items-center gap-1 text-xs text-bg/60 hover:text-bg transition-colors">
+              Switch workspace
+              <svg width="9" height="9" viewBox="0 0 10 6" fill="none" aria-hidden>
+                <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
-          )}
+            {/* pt-2 is a hover bridge so the menu stays open between button and list */}
+            <div className="absolute right-0 top-full pt-2 hidden group-hover:block z-50">
+              <div className="w-64 bg-bg rounded-lg shadow-xl border border-rule py-1.5 max-h-80 overflow-y-auto">
+                <div className="px-3 py-1 text-[0.6rem] uppercase tracking-[0.12em] text-ink-faint">Your weddings</div>
+                {myWorkspaces.map((w) => (
+                  <button
+                    key={w._id}
+                    onClick={() => switchTo(w._id)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-bg-tint transition-colors flex items-center gap-2 ${
+                      w._id === workspaceId ? 'text-ink font-medium' : 'text-ink-soft'
+                    }`}
+                  >
+                    <span className="flex-1 truncate">{w.name}</span>
+                    {w._id === workspaceId && <span className="text-accent text-[0.6rem]" aria-label="current">●</span>}
+                  </button>
+                ))}
+                <div className="border-t border-rule mt-1 pt-1">
+                  <button
+                    onClick={openCreate}
+                    className="w-full text-left px-3 py-2 text-sm text-accent hover:bg-bg-tint transition-colors"
+                  >
+                    + New wedding
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <Link
             href="/account"
             className="text-xs text-bg/60 hover:text-bg transition-colors"

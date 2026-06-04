@@ -109,7 +109,6 @@ function WorkspaceGate({ children }: { children: React.ReactNode }) {
       workspaceId={effectiveId}
       workspaceName={active.name}
       partnerNames={partnerNames}
-      canSwitch={workspaces.length > 1}
       switchWorkspace={switchWorkspace}
     >
       {children}
@@ -125,14 +124,12 @@ function AppShell({
   workspaceId,
   workspaceName,
   partnerNames,
-  canSwitch,
   switchWorkspace,
   children,
 }: {
   workspaceId: Id<'workspaces'>;
   workspaceName: string;
   partnerNames: { a: string; b: string };
-  canSwitch: boolean;
   switchWorkspace: () => void;
   children: React.ReactNode;
 }) {
@@ -144,7 +141,7 @@ function AppShell({
       value={{ workspaceId, workspaceName, partnerNames, switchWorkspace, entitlement }}
     >
       <div className="flex flex-col h-screen overflow-hidden bg-bg">
-        <AppToolbar canSwitch={canSwitch} />
+        <AppToolbar />
         <ModuleTabs />
         <BillingBanner entitlement={entitlement} />
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
