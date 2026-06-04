@@ -1,7 +1,21 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { TRIAL_PERIOD_DAYS } from "./billingConfig";
+import {
+  TRIAL_PERIOD_DAYS,
+  TRIAL_TIER,
+  type Tier,
+  type Feature,
+  isTier,
+  tierHasFeature,
+  guestCapFor,
+  FEATURE_LABEL,
+  FEATURE_MIN_TIER,
+} from "./billingConfig";
+
+function titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -62,28 +76,87 @@ export function trialEndsAtFor(workspace: { _creationTime: number }): number {
  * Use in place of assertMember in mutations that create or modify content.
  * (Mutation-only: relies on Date.now(), which Convex permits in mutations.)
  */
+const TRIAL_ENDED_MESSAGE =
+  "Your free trial has ended. Subscribe to keep editing your wedding plans.";
+
+/**
+ * Compute a workspace's effective tier + edit access (mutation-time; uses
+ * Date.now). `tier` is the live subscription's tier, or TRIAL_TIER while in the
+ * free trial, or null when locked (trial over, no live subscription).
+ */
+async function computeAccess(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">
+): Promise<{ tier: Tier | null; canEdit: boolean }> {
+  const subs = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .take(50);
+  const live = subs.find((s) => EDIT_GRACE_STATUSES.includes(s.status));
+  if (live) {
+    return { tier: isTier(live.tier) ? live.tier : "standard", canEdit: true };
+  }
+  const ws = await ctx.db.get(workspaceId);
+  if (ws && Date.now() < trialEndsAtFor(ws)) {
+    return { tier: TRIAL_TIER, canEdit: true };
+  }
+  return { tier: null, canEdit: false };
+}
+
 export async function assertCanEdit(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">
 ): Promise<Id<"users">> {
   const userId = await assertMember(ctx, workspaceId);
+  const { canEdit } = await computeAccess(ctx, workspaceId);
+  if (!canEdit) throw new Error(TRIAL_ENDED_MESSAGE);
+  return userId;
+}
 
-  const ws = await ctx.db.get(workspaceId);
-  // Still within the free trial → always allowed.
-  if (ws && Date.now() < trialEndsAtFor(ws)) return userId;
-
-  // Trial over: require a live subscription.
-  const subs = await ctx.db
-    .query("subscriptions")
-    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
-    .take(50);
-  const live = subs.some((s) => EDIT_GRACE_STATUSES.includes(s.status));
-  if (!live) {
+/**
+ * Like assertCanEdit, but also requires that the workspace's effective tier
+ * includes a premium `feature` (seating / timeline / vendors). Used to gate the
+ * Pro-only module mutations. Throws the trial-ended message when locked, or an
+ * upgrade message when the tier simply doesn't include the feature.
+ */
+export async function assertTierFeature(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  feature: Feature
+): Promise<Id<"users">> {
+  const userId = await assertMember(ctx, workspaceId);
+  const { tier, canEdit } = await computeAccess(ctx, workspaceId);
+  if (!canEdit || !tier) throw new Error(TRIAL_ENDED_MESSAGE);
+  if (!tierHasFeature(tier, feature)) {
     throw new Error(
-      "Your free trial has ended. Subscribe to keep editing your wedding plans."
+      `${FEATURE_LABEL[feature]} is a ${titleCase(FEATURE_MIN_TIER[feature])} feature. ` +
+        `Upgrade your plan to use it.`
     );
   }
   return userId;
+}
+
+/**
+ * Enforce the tier's guest cap before creating a guest. Keeps existing data
+ * (over-cap workspaces aren't trimmed) — only NEW guests past the cap are
+ * blocked. Call after assertCanEdit in guests.create.
+ */
+export async function assertGuestCapacity(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">
+): Promise<void> {
+  const { tier } = await computeAccess(ctx, workspaceId);
+  const cap = tier ? guestCapFor(tier) : 0;
+  if (cap === null) return; // unlimited
+  const existing = await ctx.db
+    .query("guests")
+    .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+    .take(cap + 1);
+  if (existing.length >= cap) {
+    throw new Error(
+      `Your plan is limited to ${cap} guests. Upgrade to Pro for unlimited guests.`
+    );
+  }
 }
 
 /**

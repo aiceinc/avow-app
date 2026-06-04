@@ -65,7 +65,8 @@ function countdown(iso: string, nowMs: number): Countdown | null {
 }
 
 export default function HomePage() {
-  const { workspaceId, partnerNames } = useWorkspace();
+  const { workspaceId, partnerNames, entitlement } = useWorkspace();
+  const canEdit = entitlement.canEdit;
 
   const me        = useQuery(api.workspaces.getMyUserId);
   const guests    = useQuery(api.guests.list,            { workspaceId });
@@ -150,7 +151,7 @@ export default function HomePage() {
         {/* Wedding-date bar (same ink colour as the header/footer) */}
         <div className="bg-ink rounded-lg px-7 py-5 flex items-center justify-center gap-8 mb-6 min-h-[88px]">
           {cd && !cd.past ? (
-            <button onClick={openDatePicker} title="Change wedding date" className="flex gap-8">
+            <button onClick={openDatePicker} disabled={!canEdit} title={canEdit ? 'Change wedding date' : undefined} className="flex gap-8 disabled:cursor-default">
               <CountBlock n={cd.days} label="Days" />
               <CountBlock n={cd.hours} label="Hours" />
               <CountBlock n={cd.minutes} label="Minutes" />
@@ -158,7 +159,7 @@ export default function HomePage() {
           ) : cd && cd.past ? (
             <span className="font-serif font-light italic text-bg text-base">Married — congratulations! 🎉</span>
           ) : (
-            <button onClick={openDatePicker} className="text-sm text-bg/70 hover:text-bg transition-colors">
+            <button onClick={openDatePicker} disabled={!canEdit} className="text-sm text-bg/70 hover:text-bg transition-colors disabled:opacity-50 disabled:cursor-default">
               Set your wedding date →
             </button>
           )}
@@ -189,10 +190,10 @@ export default function HomePage() {
         {/* Tasks + Vendors + Notes */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <TasksCard workspaceId={workspaceId} tasks={tasks} />
+            <TasksCard workspaceId={workspaceId} tasks={tasks} canEdit={canEdit} />
             <VendorsCard vendors={vendors} categories={vendorCats} />
           </div>
-          <NotesCard workspaceId={workspaceId} notes={notes} />
+          <NotesCard workspaceId={workspaceId} notes={notes} canEdit={canEdit} />
         </div>
 
       </div>
@@ -388,7 +389,7 @@ function RsvpRow({ label, count, pct, fill }: { label: string; count: number; pc
 
 // ── Tasks (functional CRUD) ─────────────────────────────────────────────────
 
-function TasksCard({ workspaceId, tasks }: { workspaceId: Doc<'workspaces'>['_id']; tasks: Doc<'tasks'>[] | undefined }) {
+function TasksCard({ workspaceId, tasks, canEdit }: { workspaceId: Doc<'workspaces'>['_id']; tasks: Doc<'tasks'>[] | undefined; canEdit: boolean }) {
   const addTask = useMutation(api.tasks.add);
   const toggleTask = useMutation(api.tasks.toggle);
   const removeTask = useMutation(api.tasks.remove);
@@ -450,7 +451,7 @@ function TasksCard({ workspaceId, tasks }: { workspaceId: Doc<'workspaces'>['_id
               />
             </form>
           ) : (
-            <button onClick={() => setAdding(true)} className="text-xs text-accent mt-3 self-start hover:opacity-80 transition-opacity">+ Add task</button>
+            <button onClick={() => setAdding(true)} disabled={!canEdit} className="text-xs text-accent mt-3 self-start hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">+ Add task</button>
           )}
         </div>
       )}
@@ -507,7 +508,7 @@ function VendorsCard({ vendors, categories }: { vendors: Doc<'vendors'>[] | unde
 
 // ── Notes / notebook (functional CRUD) ────────────────────────────────────────
 
-function NotesCard({ workspaceId, notes }: { workspaceId: Doc<'workspaces'>['_id']; notes: Doc<'notes'>[] | undefined }) {
+function NotesCard({ workspaceId, notes, canEdit }: { workspaceId: Doc<'workspaces'>['_id']; notes: Doc<'notes'>[] | undefined; canEdit: boolean }) {
   const addNote = useMutation(api.notes.add);
   const removeNote = useMutation(api.notes.remove);
 
@@ -566,7 +567,7 @@ function NotesCard({ workspaceId, notes }: { workspaceId: Doc<'workspaces'>['_id
               />
             </form>
           ) : (
-            <button onClick={() => setAdding(true)} className="text-xs text-accent mt-3 self-start hover:opacity-80 transition-opacity">+ Add a note</button>
+            <button onClick={() => setAdding(true)} disabled={!canEdit} className="text-xs text-accent mt-3 self-start hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">+ Add a note</button>
           )}
         </div>
       )}

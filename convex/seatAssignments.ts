@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, assertCanEdit } from "./lib";
+import { assertMember, assertTierFeature } from "./lib";
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ export const assign = mutation({
       throw new Error("Table and guest are in different workspaces");
     }
 
-    await assertCanEdit(ctx, table.workspaceId);
+    await assertTierFeature(ctx, table.workspaceId, "seating");
 
     // 1. Evict whoever is already in the target seat (if anyone)
     const seatOccupant = await ctx.db
@@ -103,7 +103,7 @@ export const unassign = mutation({
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
     if (!guest) return;
-    await assertCanEdit(ctx, guest.workspaceId);
+    await assertTierFeature(ctx, guest.workspaceId, "seating");
 
     const assignment = await ctx.db
       .query("seatAssignments")

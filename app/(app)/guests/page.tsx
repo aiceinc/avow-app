@@ -11,10 +11,12 @@
  */
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Doc } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
+import { guestCapFor } from '@/convex/billingConfig';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import GuestFormModal, { GuestFormValues } from '@/app/components/GuestFormModal';
 import {
@@ -32,7 +34,7 @@ import {
 type SortKey = 'name-asc' | 'name-desc';
 
 export default function GuestsPage() {
-  const { workspaceId, partnerNames } = useWorkspace();
+  const { workspaceId, partnerNames, entitlement } = useWorkspace();
 
   const guests      = useQuery(api.guests.list,          { workspaceId });
   const assignments = useQuery(api.seatAssignments.list, { workspaceId }) ?? [];
@@ -107,6 +109,11 @@ export default function GuestsPage() {
   const attending = (guests ?? []).filter(g => rsvpStatusOf(g) === 'yes').length;
   const isEmpty = !loading && total === 0;
 
+  // Per-tier guest cap (Standard / free trial = 100; Pro & Planner unlimited).
+  const cap = entitlement.tier ? guestCapFor(entitlement.tier) : null;
+  const atCap = cap !== null && total >= cap;
+  const canAdd = entitlement.canEdit && !atCap;
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-4xl mx-auto w-full px-6 py-6">
@@ -120,11 +127,23 @@ export default function GuestsPage() {
             </p>
           </div>
           {!isEmpty && (
-            <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
+            <button
+              onClick={openAdd}
+              disabled={!canAdd}
+              title={atCap ? `Your plan is limited to ${cap} guests` : undefined}
+              className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               + Add a guest
             </button>
           )}
         </div>
+
+        {atCap && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-ink-soft flex items-center justify-between gap-3">
+            <span>You&rsquo;ve reached the <strong>{cap}-guest</strong> limit on your plan. Upgrade to Pro for unlimited guests.</span>
+            <Link href="/account" className="shrink-0 underline font-medium hover:opacity-80">Upgrade &rarr;</Link>
+          </div>
+        )}
 
         {loading && (
           <p className="text-sm text-ink-faint py-16 text-center">Loading guests…</p>
@@ -137,7 +156,11 @@ export default function GuestsPage() {
             <p className="text-sm text-ink-soft mb-5 max-w-sm mx-auto">
               Build your guest list here — it powers your seating chart and the rest of your planning.
             </p>
-            <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
+            <button
+              onClick={openAdd}
+              disabled={!entitlement.canEdit}
+              className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               + Add a guest
             </button>
           </div>

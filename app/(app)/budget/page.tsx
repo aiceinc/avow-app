@@ -24,7 +24,8 @@ import {
 } from '@/app/lib/budget';
 
 export default function BudgetPage() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, entitlement } = useWorkspace();
+  const canEdit = entitlement.canEdit;
 
   const settings   = useQuery(api.budget.getSettings,    { workspaceId });
   const categories = useQuery(api.budget.listCategories, { workspaceId });
@@ -235,7 +236,7 @@ export default function BudgetPage() {
               <button onClick={openTargetEditor} className="text-xs text-ink-faint hover:text-ink-soft transition-colors">Edit</button>
             </div>
           ) : (
-            <button onClick={openTargetEditor} className="btn btn-secondary text-sm px-4 py-2 border-accent text-accent hover:bg-bg-tint">
+            <button onClick={openTargetEditor} disabled={!canEdit} className="btn btn-secondary text-sm px-4 py-2 border-accent text-accent hover:bg-bg-tint disabled:opacity-50 disabled:cursor-not-allowed">
               Set a target budget
             </button>
           )}
@@ -261,8 +262,8 @@ export default function BudgetPage() {
         <div className="flex items-center gap-2 mb-3">
           <button
             onClick={() => openAddItem()}
-            disabled={!categories || categories.length === 0}
-            className="btn btn-primary text-sm px-4 py-2"
+            disabled={!canEdit || !categories || categories.length === 0}
+            className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Add a line item
           </button>
@@ -281,7 +282,7 @@ export default function BudgetPage() {
               <button onClick={() => { setAddingCategory(false); setNewCatName(''); }} className="btn btn-secondary text-xs px-3 py-2">Cancel</button>
             </div>
           ) : (
-            <button onClick={() => setAddingCategory(true)} className="btn btn-secondary text-sm px-3 py-2">+ Category</button>
+            <button onClick={() => setAddingCategory(true)} disabled={!canEdit} className="btn btn-secondary text-sm px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed">+ Category</button>
           )}
         </div>
 
@@ -294,7 +295,7 @@ export default function BudgetPage() {
             <p className="text-sm text-ink-soft mb-5 max-w-sm mx-auto">
               Add your first line item to start tracking estimates, actuals, and payments by category.
             </p>
-            <button onClick={() => openAddItem()} className="btn btn-primary text-sm px-4 py-2">+ Add line item</button>
+            <button onClick={() => openAddItem()} disabled={!canEdit} className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed">+ Add line item</button>
           </div>
         )}
 

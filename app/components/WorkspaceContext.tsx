@@ -12,12 +12,16 @@
 
 import { createContext, useContext } from 'react';
 import { Id } from '@/convex/_generated/dataModel';
+import type { Tier } from '@/convex/billingConfig';
 
 /** Billing/access state for the active workspace. */
 export type BillingStatus = 'loading' | 'trial' | 'active' | 'past_due' | 'locked';
 
 export type Entitlement = {
   status: BillingStatus;
+  /** Effective plan tier: the live subscription's tier, 'standard' during the
+   *  free trial, or null when locked. Drives per-tier feature gating. */
+  tier: Tier | null;
   /** False only when the trial has lapsed with no live subscription (read-only). */
   canEdit: boolean;
   /** Whole days remaining in the free trial (0 once expired). */

@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, assertCanEdit } from "./lib";
+import { assertMember, assertTierFeature } from "./lib";
 
 /**
  * Day-of Timeline module (v1.5.0). A time-ordered run-of-show for the wedding
@@ -44,7 +44,7 @@ export const addItem = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await assertCanEdit(ctx, args.workspaceId);
+    await assertTierFeature(ctx, args.workspaceId, "timeline");
 
     const title = args.title.trim();
     if (!title) throw new Error("Event title is required");
@@ -86,7 +86,7 @@ export const updateItem = mutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Timeline item not found");
-    await assertCanEdit(ctx, item.workspaceId);
+    await assertTierFeature(ctx, item.workspaceId, "timeline");
 
     if (args.title !== undefined && !args.title.trim()) {
       throw new Error("Event title cannot be empty");
@@ -121,7 +121,7 @@ export const removeItem = mutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Timeline item not found");
-    await assertCanEdit(ctx, item.workspaceId);
+    await assertTierFeature(ctx, item.workspaceId, "timeline");
     await ctx.db.delete(args.itemId);
   },
 });

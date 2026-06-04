@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, assertCanEdit } from "./lib";
+import { assertMember, assertCanEdit, assertGuestCapacity } from "./lib";
 
 // ── Shared validators ───────────────────────────────────────────────────────
 const sideValidator = v.union(
@@ -70,6 +70,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await assertCanEdit(ctx, args.workspaceId);
+    await assertGuestCapacity(ctx, args.workspaceId);
 
     const name = args.name.trim();
     if (!name) throw new Error("Guest name is required");

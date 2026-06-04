@@ -35,6 +35,56 @@ export function priceEnvVar(tier: Tier, interval: Interval): string {
   return `${prefix}_${interval === 'year' ? 'YEAR' : 'MONTH'}`;
 }
 
+// ── Tier feature matrix (v1.12.0) ────────────────────────────────────────────
+// What each plan unlocks, mirroring the /auth pricing perks. Enforced server-side
+// (convex/lib.ts) and reflected in the UI. Unbuilt perks (exports, chat support,
+// client portal, branded exports) are omitted. The Planner "up to 10 weddings"
+// multi-workspace limit is intentionally NOT modelled here yet — it conflicts with
+// the per-workspace subscription model and needs its own design.
+
+/** Premium modules gated to Pro and above. Standard — and the free trial, which
+ *  grants Standard-level access — cannot create or edit these. */
+export type Feature = 'seating' | 'timeline' | 'vendors';
+
+/** The effective tier the no-card free trial grants (couples try Standard-level
+ *  features; Pro modules require subscribing). Product decision 2026-06-04. */
+export const TRIAL_TIER: Tier = 'standard';
+
+/** Features unlocked by each tier. */
+export const TIER_FEATURES: Record<Tier, Feature[]> = {
+  standard: [],
+  pro: ['seating', 'timeline', 'vendors'],
+  planner: ['seating', 'timeline', 'vendors'],
+};
+
+/** Max guests per tier; null = unlimited. */
+export const GUEST_CAP: Record<Tier, number | null> = {
+  standard: 100,
+  pro: null,
+  planner: null,
+};
+
+/** Human label for a gated feature (used in upgrade prompts). */
+export const FEATURE_LABEL: Record<Feature, string> = {
+  seating: 'Seating planner',
+  timeline: 'Day-of timeline',
+  vendors: 'Vendor management',
+};
+
+/** The lowest tier that includes a given feature (for "Upgrade to X" copy). */
+export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
+  seating: 'pro',
+  timeline: 'pro',
+  vendors: 'pro',
+};
+
+export function tierHasFeature(tier: Tier, feature: Feature): boolean {
+  return TIER_FEATURES[tier].includes(feature);
+}
+export function guestCapFor(tier: Tier): number | null {
+  return GUEST_CAP[tier];
+}
+
 // ── Term parameters (fill-in-later set) ──────────────────────────────────────
 
 /** Free-trial length in days. The trial is APP-MANAGED (per workspace, from its

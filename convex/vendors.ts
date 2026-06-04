@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, assertCanEdit } from "./lib";
+import { assertMember, assertTierFeature } from "./lib";
 
 /**
  * Vendors module (v1.4.0). Mirrors the Budget Tracker's backend patterns:
@@ -98,7 +98,7 @@ export const seedDefaultCategories = mutation({
 export const addCategory = mutation({
   args: { workspaceId: v.id("workspaces"), name: v.string() },
   handler: async (ctx, args) => {
-    await assertCanEdit(ctx, args.workspaceId);
+    await assertTierFeature(ctx, args.workspaceId, "vendors");
     const name = args.name.trim();
     if (!name) throw new Error("Category name is required");
 
@@ -122,7 +122,7 @@ export const renameCategory = mutation({
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
     if (!cat) throw new Error("Category not found");
-    await assertCanEdit(ctx, cat.workspaceId);
+    await assertTierFeature(ctx, cat.workspaceId, "vendors");
 
     const name = args.name.trim();
     if (!name) throw new Error("Category name cannot be empty");
@@ -140,7 +140,7 @@ export const removeCategory = mutation({
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
     if (!cat) throw new Error("Category not found");
-    await assertCanEdit(ctx, cat.workspaceId);
+    await assertTierFeature(ctx, cat.workspaceId, "vendors");
 
     const used = await ctx.db
       .query("vendors")
@@ -171,7 +171,7 @@ export const addVendor = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await assertCanEdit(ctx, args.workspaceId);
+    await assertTierFeature(ctx, args.workspaceId, "vendors");
 
     const name = args.name.trim();
     if (!name) throw new Error("Vendor name is required");
@@ -216,7 +216,7 @@ export const updateVendor = mutation({
   handler: async (ctx, args) => {
     const vendor = await ctx.db.get(args.vendorId);
     if (!vendor) throw new Error("Vendor not found");
-    await assertCanEdit(ctx, vendor.workspaceId);
+    await assertTierFeature(ctx, vendor.workspaceId, "vendors");
 
     if (args.name !== undefined && !args.name.trim()) {
       throw new Error("Vendor name cannot be empty");
@@ -258,7 +258,7 @@ export const removeVendor = mutation({
   handler: async (ctx, args) => {
     const vendor = await ctx.db.get(args.vendorId);
     if (!vendor) throw new Error("Vendor not found");
-    await assertCanEdit(ctx, vendor.workspaceId);
+    await assertTierFeature(ctx, vendor.workspaceId, "vendors");
 
     // Budget line items: clear the FK but preserve the name as legacy text so
     // the budget row still displays something meaningful.

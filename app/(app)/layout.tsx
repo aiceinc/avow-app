@@ -27,12 +27,14 @@ import { derivePartnerNames } from '@/app/lib/guests';
 import AppToolbar from '@/app/components/AppToolbar';
 import ModuleTabs from '@/app/components/ModuleTabs';
 import BillingBanner from '@/app/components/BillingBanner';
+import { isTier, TRIAL_TIER } from '@/convex/billingConfig';
 
 const STORAGE_KEY = 'avow:workspaceId';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const LOADING_ENTITLEMENT: Entitlement = {
   status: 'loading',
+  tier: null,
   canEdit: true, // don't flash the paywall before billing data loads
   trialDaysLeft: 0,
   trialEndsAt: null,
@@ -161,6 +163,7 @@ function deriveEntitlement(
         hasSubscription: boolean;
         subStatus: string | null;
         paymentFailed: boolean;
+        tier: string | null;
       }
     | undefined
 ): Entitlement {
@@ -176,8 +179,18 @@ function deriveEntitlement(
     : inTrial
     ? 'trial'
     : 'locked';
+  // Effective tier: the subscription's tier, Standard during the free trial,
+  // else null (locked).
+  const tier = e.hasSubscription
+    ? isTier(e.tier ?? '')
+      ? (e.tier as Entitlement['tier'])
+      : 'standard'
+    : inTrial
+    ? TRIAL_TIER
+    : null;
   return {
     status,
+    tier,
     canEdit,
     trialDaysLeft,
     trialEndsAt: e.trialEndsAt,
