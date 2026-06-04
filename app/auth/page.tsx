@@ -211,7 +211,7 @@ export default function AuthPage() {
                 See how it works
               </button>
             </div>
-            <p className="text-xs text-ink-faint mt-4">Card required. Cancel anytime before your trial ends.</p>
+            <p className="text-xs text-ink-faint mt-4">No card required. Free for 14 days — subscribe any time to keep going.</p>
           </div>
         </div>
 
@@ -283,7 +283,7 @@ export default function AuthPage() {
 
         {/* Trial notice + reminder */}
         <div className="flex items-center justify-center gap-6 flex-wrap mb-8">
-          <span className="text-[0.78rem] text-ink-soft">All plans include a 14-day trial. Your card will be charged automatically after your trial ends.</span>
+          <span className="text-[0.78rem] text-ink-soft">Every plan starts with a 14-day free trial — no card required. Add a card only when you choose to subscribe.</span>
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <span
               role="switch"
@@ -309,7 +309,7 @@ export default function AuthPage() {
         <h2 className="font-serif font-light text-5xl leading-tight mb-4">
           Your wedding,<br /><em className="italic">beautifully organised</em>
         </h2>
-        <p className="text-[15px] text-ink-soft mb-8">Start your 14-day trial today. Your card won&rsquo;t be charged until day 15.</p>
+        <p className="text-[15px] text-ink-soft mb-8">Start your 14-day free trial today — no card required.</p>
         <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">Get started</button>
       </section>
 
@@ -477,7 +477,7 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
       >
         Start 14-day trial
       </button>
-      <div className="text-[0.68rem] text-ink-faint text-center mt-3">Card required. Cancel anytime.</div>
+      <div className="text-[0.68rem] text-ink-faint text-center mt-3">No card required to start.</div>
     </div>
   );
 }
