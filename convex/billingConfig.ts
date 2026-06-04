@@ -117,7 +117,7 @@ export const REFUND_POLICY_TEXT =
  * this whole string when Brooke provides it.
  */
 export const AUTO_RENEW_DISCLOSURE =
-  `[PENDING LEGAL — placeholder, not final wording] By subscribing, your payment method will be charged for the plan you ` +
-  `selected, and your subscription renews automatically each billing period at the then-current price until you cancel. ` +
-  `If you subscribe while still inside your ${TRIAL_PERIOD_DAYS}-day free trial, you won't be charged until the trial ends. ` +
-  `You can cancel any time from your account; cancellation takes effect at the end of the current billing period.`;
+  `[PENDING LEGAL — placeholder, not final wording] By subscribing, your payment method is charged immediately for the ` +
+  `plan you selected and your paid subscription begins right away, ending any free trial. It renews automatically each ` +
+  `billing period at the then-current price until you cancel. You can cancel any time from your account; cancellation ` +
+  `takes effect at the end of the current billing period.`;

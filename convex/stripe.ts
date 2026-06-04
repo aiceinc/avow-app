@@ -61,20 +61,15 @@ export const createCheckoutSession = action({
       });
     }
 
-    // The free trial is app-managed and needs no card; we never start a Stripe
-    // trial here. But if the user subscribes while still inside their free trial,
-    // honour the remaining days via `trial_end` so they aren't billed early.
-    // Stripe requires trial_end to be >48h in the future, so below that we bill now.
-    const nowSec = Math.floor(Date.now() / 1000);
-    const trialEndSec = Math.floor((conf.trialEndsAt ?? 0) / 1000);
-    const trialEnd = trialEndSec - nowSec > 48 * 3600 ? trialEndSec : undefined;
-
+    // The free trial is app-managed, Standard-level, and needs no card. Choosing
+    // a paid plan ENDS the trial: we start a normal paid subscription with NO
+    // Stripe trial, so the customer is charged immediately and the paid term
+    // begins right away (no "N days free of <paid tier>").
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
-        ...(trialEnd ? { trial_end: trialEnd } : {}),
         metadata: {
           workspaceId: args.workspaceId,
           tier: args.tier,
