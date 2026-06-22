@@ -21,7 +21,7 @@ import GuestPanel from '@/app/components/GuestPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import TableShapeIcon from '@/app/components/TableShapeIcon';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
-import { TEMPLATES, TemplateKey } from '@/app/lib/templates';
+import { TEMPLATES, TemplateKey, suggestTemplateKey } from '@/app/lib/templates';
 
 const SeatingCanvas = dynamic(() => import('@/app/components/SeatingCanvas'), {
   ssr: false,
@@ -83,6 +83,14 @@ export default function SeatingPage() {
   const [draggingGuestId,  setDraggingGuestId]  = useState<string | null>(null);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [canvasSize,       setCanvasSize]       = useState({ width: 1000, height: 650 });
+
+  // Template sizing: seats to plan for. Auto-filled from the guest list; the
+  // "Custom" toggle lets the user override it.
+  const [customSeats,     setCustomSeats]     = useState(false);
+  const [customSeatCount, setCustomSeatCount] = useState(0);
+  const targetSeats  = customSeats ? customSeatCount : guests.length;
+  const canApply     = targetSeats >= 1;
+  const suggestedKey = suggestTemplateKey(targetSeats);
 
   const [modal, setModal] = useState<{
     message:      string;
@@ -154,14 +162,16 @@ export default function SeatingPage() {
   }
 
   function handleApplyTemplate(key: TemplateKey) {
+    if (!canApply) return;
     setTemplateMenuOpen(false);
+    const seats = Math.max(1, targetSeats);
     const apply = async () => {
       closeModal();
       setSelectedTableId(null);
       await clearAll({ workspaceId });
       await createBatch({
         workspaceId,
-        tables: TEMPLATES[key].build(canvasSize.width, canvasSize.height),
+        tables: TEMPLATES[key].build(canvasSize.width, canvasSize.height, seats),
       });
     };
     if (tables.length > 0) {
@@ -251,18 +261,72 @@ export default function SeatingPage() {
               Use Template ▾
             </button>
             {templateMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="absolute left-0 top-full mt-1 w-72 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden max-h-[28rem] overflow-y-auto">
+                {/* Seats to plan for — auto-filled from the guest list, or custom */}
+                <div className="px-4 py-3 border-b border-rule bg-bg-tint/40 sticky top-0">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-ink">Seats to plan for</span>
+                    <label className="flex items-center gap-1.5 text-xs text-ink-soft cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={customSeats}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setCustomSeats(on);
+                          if (on) setCustomSeatCount(guests.length);
+                        }}
+                      />
+                      Custom
+                    </label>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={customSeats ? customSeatCount : guests.length}
+                    disabled={!customSeats}
+                    onChange={(e) => setCustomSeatCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="app-input w-full text-sm px-2 py-1.5 disabled:opacity-60"
+                  />
+                  <p className="text-[0.65rem] text-ink-faint mt-1">
+                    {customSeats
+                      ? 'Using a custom guest count.'
+                      : `Auto-filled from your ${guests.length} guest${guests.length === 1 ? '' : 's'}.`}
+                  </p>
+                </div>
+
+                {!canApply && (
+                  <p className="px-4 py-3 text-xs text-ink-faint">
+                    Add guests to your list, or turn on <strong>Custom</strong> and enter a number, to generate a layout.
+                  </p>
+                )}
+
                 {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(
-                  ([key, tmpl]) => (
-                    <button
-                      key={key}
-                      onClick={() => handleApplyTemplate(key)}
-                      className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors"
-                    >
-                      <div className="text-sm text-ink">{tmpl.label}</div>
-                      <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
-                    </button>
-                  )
+                  ([key, tmpl]) => {
+                    const { tableCount, totalSeats } = tmpl.plan(Math.max(1, targetSeats));
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleApplyTemplate(key)}
+                        disabled={!canApply}
+                        className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-ink">{tmpl.label}</span>
+                          {canApply && key === suggestedKey && (
+                            <span className="text-[0.55rem] uppercase tracking-wide font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded">
+                              Suggested
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
+                        {canApply && (
+                          <div className="text-[0.7rem] text-accent mt-1">
+                            {tableCount} table{tableCount === 1 ? '' : 's'} · {totalSeats} seats
+                          </div>
+                        )}
+                      </button>
+                    );
+                  }
                 )}
               </div>
             )}
