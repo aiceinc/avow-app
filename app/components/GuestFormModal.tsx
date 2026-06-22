@@ -9,6 +9,7 @@
 
 import { useState, FormEvent } from 'react';
 import { Doc } from '@/convex/_generated/dataModel';
+import { errorMessage } from '@/app/lib/errors';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import {
   Side,
@@ -66,7 +67,7 @@ export default function GuestFormModal({
       });
       // Parent closes the modal on success.
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not save guest');
+      setError(errorMessage(err, 'Could not save guest'));
       setSaving(false);
     }
   }

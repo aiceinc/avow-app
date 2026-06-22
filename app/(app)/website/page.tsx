@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
+import { errorMessage } from '@/app/lib/errors';
 import { api } from '@/convex/_generated/api';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
@@ -93,7 +94,7 @@ function PublishCard({
       await onSetSlug(slugInput);
       setEditingSlug(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not save the address.');
+      setError(errorMessage(err, 'Could not save the address.'));
     }
   }
 

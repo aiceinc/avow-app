@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertTierFeature } from "./lib";
 
 /**
@@ -100,7 +100,7 @@ export const addCategory = mutation({
   handler: async (ctx, args) => {
     await assertTierFeature(ctx, args.workspaceId, "vendors");
     const name = args.name.trim();
-    if (!name) throw new Error("Category name is required");
+    if (!name) throw new ConvexError("Category name is required");
 
     const cats = await ctx.db
       .query("vendorCategories")
@@ -121,11 +121,11 @@ export const renameCategory = mutation({
   args: { categoryId: v.id("vendorCategories"), name: v.string() },
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
-    if (!cat) throw new Error("Category not found");
+    if (!cat) throw new ConvexError("Category not found");
     await assertTierFeature(ctx, cat.workspaceId, "vendors");
 
     const name = args.name.trim();
-    if (!name) throw new Error("Category name cannot be empty");
+    if (!name) throw new ConvexError("Category name cannot be empty");
 
     await ctx.db.patch(args.categoryId, { name });
   },
@@ -139,7 +139,7 @@ export const removeCategory = mutation({
   args: { categoryId: v.id("vendorCategories") },
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
-    if (!cat) throw new Error("Category not found");
+    if (!cat) throw new ConvexError("Category not found");
     await assertTierFeature(ctx, cat.workspaceId, "vendors");
 
     const used = await ctx.db
@@ -147,7 +147,7 @@ export const removeCategory = mutation({
       .withIndex("by_categoryId", (q) => q.eq("categoryId", args.categoryId))
       .take(1);
     if (used.length > 0) {
-      throw new Error(
+      throw new ConvexError(
         "This category still has vendors. Recategorize or delete them before deleting the category."
       );
     }
@@ -174,12 +174,12 @@ export const addVendor = mutation({
     await assertTierFeature(ctx, args.workspaceId, "vendors");
 
     const name = args.name.trim();
-    if (!name) throw new Error("Vendor name is required");
+    if (!name) throw new ConvexError("Vendor name is required");
 
     if (args.categoryId !== undefined) {
       const cat = await ctx.db.get(args.categoryId);
       if (!cat || cat.workspaceId !== args.workspaceId) {
-        throw new Error("Category not found in this workspace");
+        throw new ConvexError("Category not found in this workspace");
       }
     }
 
@@ -215,16 +215,16 @@ export const updateVendor = mutation({
   },
   handler: async (ctx, args) => {
     const vendor = await ctx.db.get(args.vendorId);
-    if (!vendor) throw new Error("Vendor not found");
+    if (!vendor) throw new ConvexError("Vendor not found");
     await assertTierFeature(ctx, vendor.workspaceId, "vendors");
 
     if (args.name !== undefined && !args.name.trim()) {
-      throw new Error("Vendor name cannot be empty");
+      throw new ConvexError("Vendor name cannot be empty");
     }
     if (args.categoryId !== undefined && args.categoryId !== null) {
       const cat = await ctx.db.get(args.categoryId);
       if (!cat || cat.workspaceId !== vendor.workspaceId) {
-        throw new Error("Category not found in this workspace");
+        throw new ConvexError("Category not found in this workspace");
       }
     }
 
@@ -257,7 +257,7 @@ export const removeVendor = mutation({
   args: { vendorId: v.id("vendors") },
   handler: async (ctx, args) => {
     const vendor = await ctx.db.get(args.vendorId);
-    if (!vendor) throw new Error("Vendor not found");
+    if (!vendor) throw new ConvexError("Vendor not found");
     await assertTierFeature(ctx, vendor.workspaceId, "vendors");
 
     // Budget line items: clear the FK but preserve the name as legacy text so

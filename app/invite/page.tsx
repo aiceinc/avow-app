@@ -6,6 +6,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useMutation } from 'convex/react';
+import { errorMessage } from '@/app/lib/errors';
 import { useConvexAuth } from '@convex-dev/auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
@@ -47,9 +48,9 @@ function InviteFlow() {
     setStatus('joining');
     joinByInviteCode({ inviteCode: code })
       .then(() => router.push('/'))
-      .catch((err: Error) => {
+      .catch((err: unknown) => {
         setStatus('error');
-        setErrorMsg(err.message);
+        setErrorMsg(errorMessage(err, 'Could not join this wedding.'));
       });
   }, [isAuthenticated, isLoading, code]);
 

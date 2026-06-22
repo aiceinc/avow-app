@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import {
@@ -36,7 +37,7 @@ export async function assertMember(
   workspaceId: Id<"workspaces">
 ): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) throw new ConvexError("Not authenticated");
 
   const member = await ctx.db
     .query("workspaceMembers")
@@ -45,7 +46,7 @@ export async function assertMember(
     )
     .unique();
 
-  if (!member) throw new Error("Not a member of this workspace");
+  if (!member) throw new ConvexError("Not a member of this workspace");
 
   return userId;
 }
@@ -57,7 +58,7 @@ export async function requireAuth(
   ctx: QueryCtx | MutationCtx
 ): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) throw new ConvexError("Not authenticated");
   return userId;
 }
 
@@ -167,7 +168,7 @@ export async function assertCanEdit(
 ): Promise<Id<"users">> {
   const userId = await assertMember(ctx, workspaceId);
   const { canEdit } = await computeAccess(ctx, workspaceId);
-  if (!canEdit) throw new Error(TRIAL_ENDED_MESSAGE);
+  if (!canEdit) throw new ConvexError(TRIAL_ENDED_MESSAGE);
   return userId;
 }
 
@@ -184,9 +185,9 @@ export async function assertTierFeature(
 ): Promise<Id<"users">> {
   const userId = await assertMember(ctx, workspaceId);
   const { tier, canEdit } = await computeAccess(ctx, workspaceId);
-  if (!canEdit || !tier) throw new Error(TRIAL_ENDED_MESSAGE);
+  if (!canEdit || !tier) throw new ConvexError(TRIAL_ENDED_MESSAGE);
   if (!tierHasFeature(tier, feature)) {
-    throw new Error(
+    throw new ConvexError(
       `${FEATURE_LABEL[feature]} is a ${titleCase(FEATURE_MIN_TIER[feature])} feature. ` +
         `Upgrade your plan to use it.`
     );
@@ -211,7 +212,7 @@ export async function assertGuestCapacity(
     .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
     .take(cap + 1);
   if (existing.length >= cap) {
-    throw new Error(
+    throw new ConvexError(
       `Your plan is limited to ${cap} guests. Upgrade your plan for more.`
     );
   }

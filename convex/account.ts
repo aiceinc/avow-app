@@ -1,4 +1,5 @@
 import { mutation } from "./_generated/server";
+import { ConvexError } from "convex/values";
 import { MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -81,7 +82,7 @@ export const deleteMyAccount = mutation({
   args: {},
   handler: async (ctx): Promise<null> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     // For each workspace this user belongs to: drop their membership, then purge
     // the workspace only if no members remain (shared weddings survive).

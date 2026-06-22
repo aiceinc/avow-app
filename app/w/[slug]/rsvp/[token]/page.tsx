@@ -11,6 +11,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useParams } from 'next/navigation';
+import { errorMessage } from '@/app/lib/errors';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 
@@ -66,7 +67,7 @@ export default function RsvpPage() {
       });
       setDone(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not submit your RSVP.');
+      setError(errorMessage(err, 'Could not submit your RSVP.'));
       setSaving(false);
     }
   }

@@ -12,7 +12,7 @@
  *    Confirm the key starts with sk_test_ so you never touch live mode here.
  */
 
-const STRIPE_SECRET_KEY = '[key]';
+const STRIPE_SECRET_KEY = '[PUT KEY FROM STRIPE TEST DASHBOARD HERE AND REMOVE BRACKETS]';
 
 // Currency for all prices. Change to 'cad' if Avow bills in Canadian dollars.
 const CURRENCY = 'cad';

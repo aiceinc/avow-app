@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 /**
  * PUBLIC, UNAUTHENTICATED endpoints for the Wedding Website module (v1.6.0).
@@ -113,7 +113,7 @@ export const submitRsvp = mutation({
       .withIndex("by_rsvpToken", (q) => q.eq("rsvpToken", args.token))
       .unique();
     // Generic failure — don't reveal whether a token nearly matched.
-    if (!guest) throw new Error("This invite link is not valid.");
+    if (!guest) throw new ConvexError("This invite link is not valid.");
 
     await ctx.db.patch(guest._id, {
       rsvpStatus: args.rsvpStatus,

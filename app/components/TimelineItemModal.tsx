@@ -8,6 +8,7 @@
 
 import { useState, FormEvent } from 'react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
+import { errorMessage } from '@/app/lib/errors';
 import { minutesToInput, parseTimeInput } from '@/app/lib/timeline';
 
 export type TimelineItemFormValues = {
@@ -61,7 +62,7 @@ export default function TimelineItemModal({
         notes: notes.trim(),
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not save event');
+      setError(errorMessage(err, 'Could not save event'));
       setSaving(false);
     }
   }

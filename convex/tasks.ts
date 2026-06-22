@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertCanEdit } from "./lib";
 
 /**
@@ -28,7 +28,7 @@ export const add = mutation({
   handler: async (ctx, args) => {
     await assertCanEdit(ctx, args.workspaceId);
     const title = args.title.trim();
-    if (!title) throw new Error("Task title is required");
+    if (!title) throw new ConvexError("Task title is required");
     return await ctx.db.insert("tasks", {
       workspaceId: args.workspaceId,
       title,
@@ -43,7 +43,7 @@ export const toggle = mutation({
   args: { taskId: v.id("tasks") },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
+    if (!task) throw new ConvexError("Task not found");
     await assertCanEdit(ctx, task.workspaceId);
     await ctx.db.patch(args.taskId, { done: !task.done });
   },
@@ -53,7 +53,7 @@ export const remove = mutation({
   args: { taskId: v.id("tasks") },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task) throw new Error("Task not found");
+    if (!task) throw new ConvexError("Task not found");
     await assertCanEdit(ctx, task.workspaceId);
     await ctx.db.delete(args.taskId);
   },

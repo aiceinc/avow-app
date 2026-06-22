@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertCanEdit } from "./lib";
 
 /**
@@ -24,7 +24,7 @@ export const add = mutation({
   handler: async (ctx, args) => {
     await assertCanEdit(ctx, args.workspaceId);
     const text = args.text.trim();
-    if (!text) throw new Error("Note text is required");
+    if (!text) throw new ConvexError("Note text is required");
     return await ctx.db.insert("notes", { workspaceId: args.workspaceId, text });
   },
 });
@@ -33,7 +33,7 @@ export const remove = mutation({
   args: { noteId: v.id("notes") },
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.noteId);
-    if (!note) throw new Error("Note not found");
+    if (!note) throw new ConvexError("Note not found");
     await assertCanEdit(ctx, note.workspaceId);
     await ctx.db.delete(args.noteId);
   },

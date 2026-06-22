@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertCanEdit } from "./lib";
 
 // ── Shared validators / helpers ─────────────────────────────────────────────
@@ -140,7 +140,7 @@ export const addCategory = mutation({
   handler: async (ctx, args) => {
     await assertCanEdit(ctx, args.workspaceId);
     const name = args.name.trim();
-    if (!name) throw new Error("Category name is required");
+    if (!name) throw new ConvexError("Category name is required");
 
     const cats = await ctx.db
       .query("budgetCategories")
@@ -161,11 +161,11 @@ export const renameCategory = mutation({
   args: { categoryId: v.id("budgetCategories"), name: v.string() },
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
-    if (!cat) throw new Error("Category not found");
+    if (!cat) throw new ConvexError("Category not found");
     await assertCanEdit(ctx, cat.workspaceId);
 
     const name = args.name.trim();
-    if (!name) throw new Error("Category name cannot be empty");
+    if (!name) throw new ConvexError("Category name cannot be empty");
 
     await ctx.db.patch(args.categoryId, { name });
   },
@@ -179,7 +179,7 @@ export const removeCategory = mutation({
   args: { categoryId: v.id("budgetCategories") },
   handler: async (ctx, args) => {
     const cat = await ctx.db.get(args.categoryId);
-    if (!cat) throw new Error("Category not found");
+    if (!cat) throw new ConvexError("Category not found");
     await assertCanEdit(ctx, cat.workspaceId);
 
     const items = await ctx.db
@@ -187,7 +187,7 @@ export const removeCategory = mutation({
       .withIndex("by_categoryId", (q) => q.eq("categoryId", args.categoryId))
       .take(1);
     if (items.length > 0) {
-      throw new Error(
+      throw new ConvexError(
         "This category still has line items. Move or delete them before deleting the category."
       );
     }
@@ -216,15 +216,15 @@ export const addLineItem = mutation({
 
     const category = await ctx.db.get(args.categoryId);
     if (!category || category.workspaceId !== args.workspaceId) {
-      throw new Error("Category not found in this workspace");
+      throw new ConvexError("Category not found in this workspace");
     }
     const name = args.name.trim();
-    if (!name) throw new Error("Line item name is required");
+    if (!name) throw new ConvexError("Line item name is required");
 
     if (args.vendorId !== undefined) {
       const vendor = await ctx.db.get(args.vendorId);
       if (!vendor || vendor.workspaceId !== args.workspaceId) {
-        throw new Error("Vendor not found in this workspace");
+        throw new ConvexError("Vendor not found in this workspace");
       }
     }
 
@@ -267,22 +267,22 @@ export const updateLineItem = mutation({
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.lineItemId);
-    if (!item) throw new Error("Line item not found");
+    if (!item) throw new ConvexError("Line item not found");
     await assertCanEdit(ctx, item.workspaceId);
 
     if (args.name !== undefined && !args.name.trim()) {
-      throw new Error("Line item name cannot be empty");
+      throw new ConvexError("Line item name cannot be empty");
     }
     if (args.categoryId !== undefined) {
       const cat = await ctx.db.get(args.categoryId);
       if (!cat || cat.workspaceId !== item.workspaceId) {
-        throw new Error("Category not found in this workspace");
+        throw new ConvexError("Category not found in this workspace");
       }
     }
     if (args.vendorId !== undefined && args.vendorId !== null) {
       const vendor = await ctx.db.get(args.vendorId);
       if (!vendor || vendor.workspaceId !== item.workspaceId) {
-        throw new Error("Vendor not found in this workspace");
+        throw new ConvexError("Vendor not found in this workspace");
       }
     }
 
@@ -324,7 +324,7 @@ export const removeLineItem = mutation({
   args: { lineItemId: v.id("budgetLineItems") },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.lineItemId);
-    if (!item) throw new Error("Line item not found");
+    if (!item) throw new ConvexError("Line item not found");
     await assertCanEdit(ctx, item.workspaceId);
     await ctx.db.delete(args.lineItemId);
   },

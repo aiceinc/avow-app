@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertTierFeature } from "./lib";
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const table = await ctx.db.get(args.tableId);
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new ConvexError("Table not found");
     await assertTierFeature(ctx, table.workspaceId, "seating");
 
     const { tableId, ...fields } = args;
@@ -108,7 +108,7 @@ export const remove = mutation({
   args: { tableId: v.id("tables") },
   handler: async (ctx, args) => {
     const table = await ctx.db.get(args.tableId);
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new ConvexError("Table not found");
     await assertTierFeature(ctx, table.workspaceId, "seating");
 
     // Delete all seat assignments for this table first

@@ -3,7 +3,7 @@
 import Stripe from "stripe";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
   isTier,
@@ -21,7 +21,7 @@ import {
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("STRIPE_SECRET_KEY is not configured in the Convex environment.");
+  if (!key) throw new ConvexError("STRIPE_SECRET_KEY is not configured in the Convex environment.");
   return new Stripe(key);
 }
 
@@ -35,11 +35,11 @@ export const createCheckoutSession = action({
   },
   handler: async (ctx, args): Promise<{ url: string }> => {
     if (!isTier(args.tier) || !isInterval(args.interval)) {
-      throw new Error("Invalid plan selection.");
+      throw new ConvexError("Invalid plan selection.");
     }
     const priceEnv = priceEnvVar(args.tier, args.interval);
     const priceId = process.env[priceEnv];
-    if (!priceId) throw new Error(`Stripe price is not configured (${priceEnv}).`);
+    if (!priceId) throw new ConvexError(`Stripe price is not configured (${priceEnv}).`);
 
     // Auth + membership check, and read/ensure the Stripe customer.
     const conf = await ctx.runQuery(internal.subscriptions.getCheckoutContext, {
@@ -84,7 +84,7 @@ export const createCheckoutSession = action({
       // at 1200 chars). Final wording is Brooke's — see AUTO_RENEW_DISCLOSURE.
       custom_text: { submit: { message: AUTO_RENEW_DISCLOSURE.slice(0, 1200) } },
     });
-    if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+    if (!session.url) throw new ConvexError("Stripe did not return a checkout URL.");
     return { url: session.url };
   },
 });
@@ -97,7 +97,7 @@ export const createPortalSession = action({
       workspaceId: args.workspaceId,
     });
     if (!conf.stripeCustomerId) {
-      throw new Error("No billing account yet — start a subscription first.");
+      throw new ConvexError("No billing account yet — start a subscription first.");
     }
     const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
@@ -117,14 +117,14 @@ export const handleWebhook = internalAction({
   args: { payload: v.string(), signature: v.string() },
   handler: async (ctx, args): Promise<{ ok: boolean }> => {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not configured.");
+    if (!secret) throw new ConvexError("STRIPE_WEBHOOK_SECRET is not configured.");
     const stripe = getStripe();
 
     let event: Stripe.Event;
     try {
       event = await stripe.webhooks.constructEventAsync(args.payload, args.signature, secret);
     } catch (err) {
-      throw new Error(
+      throw new ConvexError(
         `Webhook signature verification failed: ${err instanceof Error ? err.message : String(err)}`
       );
     }

@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertTierFeature } from "./lib";
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -52,13 +52,13 @@ export const assign = mutation({
   },
   handler: async (ctx, args) => {
     const table = await ctx.db.get(args.tableId);
-    if (!table) throw new Error("Table not found");
+    if (!table) throw new ConvexError("Table not found");
 
     const guest = await ctx.db.get(args.guestId);
-    if (!guest) throw new Error("Guest not found");
+    if (!guest) throw new ConvexError("Guest not found");
 
     if (table.workspaceId !== guest.workspaceId) {
-      throw new Error("Table and guest are in different workspaces");
+      throw new ConvexError("Table and guest are in different workspaces");
     }
 
     await assertTierFeature(ctx, table.workspaceId, "seating");

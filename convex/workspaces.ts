@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   requireAuth,
@@ -107,7 +107,7 @@ export const create = mutation({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .take(weddingLimit + 1);
     if (mine.length >= weddingLimit) {
-      throw new Error(
+      throw new ConvexError(
         weddingLimit <= 1
           ? "Your plan covers a single wedding. Upgrade to a Planner plan to manage multiple weddings."
           : `Your Planner plan covers up to ${weddingLimit} weddings.`
@@ -146,7 +146,7 @@ export const generateInvite = mutation({
       .take(5);
 
     if (members.length >= 2) {
-      throw new Error("Workspace already has 2 members");
+      throw new ConvexError("Workspace already has 2 members");
     }
 
     // Generate a random invite code
@@ -184,7 +184,7 @@ export const joinByInviteCode = mutation({
     );
 
     if (!workspace) {
-      throw new Error("Invalid or expired invite code");
+      throw new ConvexError("Invalid or expired invite code");
     }
 
     // Check member count
@@ -194,7 +194,7 @@ export const joinByInviteCode = mutation({
       .take(5);
 
     if (members.length >= 2) {
-      throw new Error("Workspace is full");
+      throw new ConvexError("Workspace is full");
     }
 
     // Check if already a member

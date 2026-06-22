@@ -14,6 +14,7 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
 import { useWorkspace } from './WorkspaceContext';
+import { errorMessage } from '@/app/lib/errors';
 
 const STORAGE_KEY = 'avow:workspaceId';
 
@@ -43,7 +44,7 @@ export default function AppToolbar() {
     try {
       setInviteCode(await generateInvite({ workspaceId }));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Could not generate invite');
+      alert(errorMessage(err, 'Could not generate invite'));
     }
   }
 
@@ -78,7 +79,7 @@ export default function AppToolbar() {
       window.localStorage.setItem(STORAGE_KEY, id);
       window.location.assign('/home');
     } catch (err: unknown) {
-      setNewError(err instanceof Error ? err.message : 'Could not create this wedding.');
+      setNewError(errorMessage(err, 'Could not create this wedding.'));
       setSavingNew(false);
     }
   }

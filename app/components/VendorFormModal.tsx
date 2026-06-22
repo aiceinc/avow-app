@@ -8,6 +8,7 @@
 
 import { useState, FormEvent } from 'react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
+import { errorMessage } from '@/app/lib/errors';
 import {
   VendorStatus,
   VENDOR_STATUS_OPTIONS,
@@ -76,7 +77,7 @@ export default function VendorFormModal({
         notes: notes.trim(),
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not save vendor');
+      setError(errorMessage(err, 'Could not save vendor'));
       setSaving(false);
     }
   }

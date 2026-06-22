@@ -1,5 +1,5 @@
 import { mutation, query, MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { assertMember, assertCanEdit } from "./lib";
 
@@ -118,11 +118,11 @@ export const setSlug = mutation({
   handler: async (ctx, args) => {
     await assertCanEdit(ctx, args.workspaceId);
     const clean = slugify(args.slug);
-    if (!clean) throw new Error("Enter a valid web address (letters and numbers).");
+    if (!clean) throw new ConvexError("Enter a valid web address (letters and numbers).");
 
     const site = await ensureSiteRow(ctx, args.workspaceId);
     if (await slugTaken(ctx, clean, args.workspaceId)) {
-      throw new Error("That web address is already taken — try another.");
+      throw new ConvexError("That web address is already taken — try another.");
     }
     await ctx.db.patch(site._id, { slug: clean });
     return clean;
@@ -149,7 +149,7 @@ export const ensureGuestToken = mutation({
   args: { guestId: v.id("guests") },
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
-    if (!guest) throw new Error("Guest not found");
+    if (!guest) throw new ConvexError("Guest not found");
     await assertMember(ctx, guest.workspaceId);
 
     if (guest.rsvpToken) return guest.rsvpToken;

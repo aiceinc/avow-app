@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertTierFeature } from "./lib";
 
 /**
@@ -47,12 +47,12 @@ export const addItem = mutation({
     await assertTierFeature(ctx, args.workspaceId, "timeline");
 
     const title = args.title.trim();
-    if (!title) throw new Error("Event title is required");
+    if (!title) throw new ConvexError("Event title is required");
 
     if (args.vendorId !== undefined) {
       const vendor = await ctx.db.get(args.vendorId);
       if (!vendor || vendor.workspaceId !== args.workspaceId) {
-        throw new Error("Vendor not found in this workspace");
+        throw new ConvexError("Vendor not found in this workspace");
       }
     }
 
@@ -85,16 +85,16 @@ export const updateItem = mutation({
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item) throw new Error("Timeline item not found");
+    if (!item) throw new ConvexError("Timeline item not found");
     await assertTierFeature(ctx, item.workspaceId, "timeline");
 
     if (args.title !== undefined && !args.title.trim()) {
-      throw new Error("Event title cannot be empty");
+      throw new ConvexError("Event title cannot be empty");
     }
     if (args.vendorId !== undefined && args.vendorId !== null) {
       const vendor = await ctx.db.get(args.vendorId);
       if (!vendor || vendor.workspaceId !== item.workspaceId) {
-        throw new Error("Vendor not found in this workspace");
+        throw new ConvexError("Vendor not found in this workspace");
       }
     }
 
@@ -120,7 +120,7 @@ export const removeItem = mutation({
   args: { itemId: v.id("timelineItems") },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item) throw new Error("Timeline item not found");
+    if (!item) throw new ConvexError("Timeline item not found");
     await assertTierFeature(ctx, item.workspaceId, "timeline");
     await ctx.db.delete(args.itemId);
   },

@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertMember, assertCanEdit, assertGuestCapacity } from "./lib";
 
 // ── Shared validators ───────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ export const create = mutation({
     await assertGuestCapacity(ctx, args.workspaceId);
 
     const name = args.name.trim();
-    if (!name) throw new Error("Guest name is required");
+    if (!name) throw new ConvexError("Guest name is required");
 
     const hasPlusOne = args.hasPlusOne ?? false;
 
@@ -107,11 +107,11 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
-    if (!guest) throw new Error("Guest not found");
+    if (!guest) throw new ConvexError("Guest not found");
     await assertCanEdit(ctx, guest.workspaceId);
 
     if (args.name !== undefined && !args.name.trim()) {
-      throw new Error("Guest name cannot be empty");
+      throw new ConvexError("Guest name cannot be empty");
     }
 
     await ctx.db.patch(args.guestId, {
@@ -144,7 +144,7 @@ export const remove = mutation({
   args: { guestId: v.id("guests") },
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
-    if (!guest) throw new Error("Guest not found");
+    if (!guest) throw new ConvexError("Guest not found");
     await assertCanEdit(ctx, guest.workspaceId);
 
     // Remove the guest's seat assignment first, if any.

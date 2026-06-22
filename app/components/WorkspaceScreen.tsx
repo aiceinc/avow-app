@@ -9,6 +9,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useMutation } from 'convex/react';
+import { errorMessage } from '@/app/lib/errors';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
@@ -45,7 +46,7 @@ export default function WorkspaceScreen({
       const id = await createWorkspace({ name: name.trim() });
       onSelect(id);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create workspace');
+      setError(errorMessage(err, 'Failed to create workspace'));
     } finally {
       setCreating(false);
     }

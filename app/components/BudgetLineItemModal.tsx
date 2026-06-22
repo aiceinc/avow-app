@@ -10,6 +10,7 @@
 
 import { useState, FormEvent } from 'react';
 import { Doc, Id } from '@/convex/_generated/dataModel';
+import { errorMessage } from '@/app/lib/errors';
 import { PaidStatus, PAID_STATUS_OPTIONS, parseMoney, lineItemNameExample } from '@/app/lib/budget';
 
 export type LineItemFormValues = {
@@ -94,7 +95,7 @@ export default function BudgetLineItemModal({
         vendorId: vendorId || null,
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not save line item');
+      setError(errorMessage(err, 'Could not save line item'));
       setSaving(false);
     }
   }

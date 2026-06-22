@@ -17,6 +17,7 @@ import { api } from '@/convex/_generated/api';
 import { PRIVACY_CONTACT_EMAIL } from '@/app/lib/config';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import AppFooter from '@/app/components/AppFooter';
+import { errorMessage } from '@/app/lib/errors';
 import {
   TIERS,
   type Tier,
@@ -51,7 +52,7 @@ export default function AccountPage() {
       await signOut().catch(() => {});
       router.replace('/auth');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not delete your account.');
+      setError(errorMessage(err, 'Could not delete your account.'));
       setDeleting(false);
     }
   }
@@ -214,7 +215,7 @@ function BillingSection() {
       const { url } = await checkout({ workspaceId, tier, interval, origin: window.location.origin });
       window.location.assign(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start checkout.');
+      setError(errorMessage(e, 'Could not start checkout.'));
       setBusy(false);
     }
   }
@@ -225,7 +226,7 @@ function BillingSection() {
       const { url } = await portal({ workspaceId, origin: window.location.origin });
       window.location.assign(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open the billing portal.');
+      setError(errorMessage(e, 'Could not open the billing portal.'));
       setBusy(false);
     }
   }
