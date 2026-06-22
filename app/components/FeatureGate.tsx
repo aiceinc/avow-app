@@ -47,11 +47,11 @@ export default function FeatureGate({
           </p>
         ) : (
           <p className="text-sm text-ink-soft leading-relaxed mb-6">
-            {label} is part of the <strong className="text-ink">Pro</strong> plan. Upgrade to unlock it.
+            {label} isn&rsquo;t included on your current plan. Upgrade to unlock it.
           </p>
         )}
         <Link href="/account" className="btn btn-primary text-sm px-6 py-3 inline-block">
-          {locked ? 'See plans' : 'Upgrade to Pro'}
+          {locked ? 'See plans' : 'Upgrade'}
         </Link>
       </div>
     </div>

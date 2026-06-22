@@ -56,8 +56,8 @@ export default defineSchema({
     // active). Drives the "update your card" banner. (v1.11.1)
     paymentFailed: v.optional(v.boolean()),
     // The user who purchased this subscription (captured at checkout). Used for
-    // account-level Planner coverage: a Planner plan unlocks Pro features across
-    // up to PLANNER_WORKSPACE_LIMIT weddings owned by this user. (v1.13.0)
+    // account-level Planner coverage: a Planner plan covers up to WEDDING_LIMIT
+    // weddings owned by this user (see convex/billingConfig.ts). (v1.13.0+)
     // Optional — rows created before v1.13.0 won't have it.
     ownerUserId: v.optional(v.id("users")),
   })

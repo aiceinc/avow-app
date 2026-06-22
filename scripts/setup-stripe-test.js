@@ -22,23 +22,23 @@ const CURRENCY = 'cad';
 // env var names the app reads (see convex/billingConfig.ts).
 const TIERS = [
   {
-    id: 'standard',
-    name: 'Avow — Standard',
-    description: 'Everything you need for a straightforward, well-organised wedding.',
+    id: 'couple',
+    name: 'Avow — Couple',
+    description: 'Everything to plan your own wedding, beautifully, in one place.',
     monthly: 4900, //  $49 / mo
     yearly: 46800, // $468 / yr  ($39/mo equivalent)
   },
   {
-    id: 'pro',
-    name: 'Avow — Pro',
-    description: 'For larger weddings or couples who want every feature without limits.',
+    id: 'planner_pro',
+    name: 'Avow — Planner Pro',
+    description: 'For wedding planners building their book of business (up to 5 weddings).',
     monthly: 9900, //  $99 / mo
     yearly: 94800, // $948 / yr  ($79/mo equivalent)
   },
   {
-    id: 'planner',
-    name: 'Avow — Planner',
-    description: 'For professional wedding planners managing multiple couples at once.',
+    id: 'planner_max',
+    name: 'Avow — Planner Max',
+    description: 'For established studios running many weddings at once (up to 50 weddings).',
     monthly: 39900, //  $399 / mo
     yearly: 382800, // $3,828 / yr  ($319/mo equivalent)
   },

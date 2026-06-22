@@ -1,6 +1,6 @@
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, trialEndsAtFor, workspaceHasPlannerMember } from "./lib";
+import { assertMember, trialEndsAtFor, workspacePlannerCoverage } from "./lib";
 import { TRIAL_PERIOD_DAYS } from "./billingConfig";
 
 /**
@@ -49,15 +49,16 @@ export const getEntitlement = query({
     const live = subs.find((s) =>
       ["active", "trialing", "past_due"].includes(s.status)
     );
-    // Account-level Planner: a member's Planner plan covers this workspace at
-    // Pro level even without its own subscription.
-    const plannerCovered = await workspaceHasPlannerMember(ctx, args.workspaceId);
+    // Account-level Planner: a member's Planner plan covers this workspace even
+    // without its own subscription. Returns the covering tier (or null).
+    const plannerTier = await workspacePlannerCoverage(ctx, args.workspaceId);
+    const plannerCovered = !!plannerTier;
     return {
       trialEndsAt: ws ? trialEndsAtFor(ws) : 0, // unix ms
       trialPeriodDays: TRIAL_PERIOD_DAYS,
       hasSubscription: plannerCovered || !!live,
       subStatus: plannerCovered ? "active" : live?.status ?? null,
-      tier: plannerCovered ? "planner" : live?.tier ?? null,
+      tier: plannerTier ?? live?.tier ?? null,
       // True only when this workspace has its OWN subscription covered by a Planner
       // plan held elsewhere (no own sub row), so the UI can show an info note.
       plannerCovered: plannerCovered && !live,

@@ -8,18 +8,20 @@
  * rewrites. See brief_stripe_billing_2026-06-01.md.
  */
 
-export type Tier = 'standard' | 'pro' | 'planner';
+export type Tier = 'couple' | 'planner_pro' | 'planner_max';
 export type Interval = 'month' | 'year';
 
-/** Display metadata for the three tiers. Prices live on Stripe (see priceEnvVar). */
+/** Display metadata for the three tiers. Prices live on Stripe (see priceEnvVar).
+ *  Planner-first model (2026-06-22): one single-wedding Couple tier + two
+ *  account-level Planner tiers covering multiple weddings (see WEDDING_LIMIT). */
 export const TIERS: { id: Tier; name: string; envPrefix: string }[] = [
-  { id: 'standard', name: 'Standard', envPrefix: 'STRIPE_PRICE_STANDARD' },
-  { id: 'pro', name: 'Pro', envPrefix: 'STRIPE_PRICE_PRO' },
-  { id: 'planner', name: 'Planner', envPrefix: 'STRIPE_PRICE_PLANNER' },
+  { id: 'couple', name: 'Couple', envPrefix: 'STRIPE_PRICE_COUPLE' },
+  { id: 'planner_pro', name: 'Planner Pro', envPrefix: 'STRIPE_PRICE_PLANNER_PRO' },
+  { id: 'planner_max', name: 'Planner Max', envPrefix: 'STRIPE_PRICE_PLANNER_MAX' },
 ];
 
 export function isTier(v: string): v is Tier {
-  return v === 'standard' || v === 'pro' || v === 'planner';
+  return v === 'couple' || v === 'planner_pro' || v === 'planner_max';
 }
 export function isInterval(v: string): v is Interval {
   return v === 'month' || v === 'year';
@@ -35,33 +37,33 @@ export function priceEnvVar(tier: Tier, interval: Interval): string {
   return `${prefix}_${interval === 'year' ? 'YEAR' : 'MONTH'}`;
 }
 
-// ── Tier feature matrix (v1.12.0) ────────────────────────────────────────────
-// What each plan unlocks, mirroring the /auth pricing perks. Enforced server-side
-// (convex/lib.ts) and reflected in the UI. Unbuilt perks (exports, chat support,
-// client portal, branded exports) are omitted. The Planner "up to 10 weddings"
-// multi-workspace limit is intentionally NOT modelled here yet — it conflicts with
-// the per-workspace subscription model and needs its own design.
+// ── Tier feature + limits matrix (v1.15.0 — planner-first) ────────────────────
+// All three tiers include EVERY built module (seating, timeline, vendors,
+// website) for a full wedding. The real ladder is how many weddings each covers
+// (WEDDING_LIMIT): Couple = 1, Planner Pro = 5, Planner Max = 50. Higher-tier
+// marketing perks (client portal, branded exports) are not built yet, so they're
+// listed on /auth but not enforced here.
 
-/** Premium modules gated to Pro and above. Standard — and the free trial, which
- *  grants Standard-level access — cannot create or edit these. */
+/** Built premium modules. (Every current tier includes them; the matrix is kept
+ *  so re-introducing a gated tier later stays a config edit.) */
 export type Feature = 'seating' | 'timeline' | 'vendors';
 
-/** The effective tier the no-card free trial grants (couples try Standard-level
- *  features; Pro modules require subscribing). Product decision 2026-06-04. */
-export const TRIAL_TIER: Tier = 'standard';
+/** The effective tier the no-card free trial grants — the full single-wedding
+ *  Couple experience. Product decision 2026-06-22. */
+export const TRIAL_TIER: Tier = 'couple';
 
 /** Features unlocked by each tier. */
 export const TIER_FEATURES: Record<Tier, Feature[]> = {
-  standard: [],
-  pro: ['seating', 'timeline', 'vendors'],
-  planner: ['seating', 'timeline', 'vendors'],
+  couple: ['seating', 'timeline', 'vendors'],
+  planner_pro: ['seating', 'timeline', 'vendors'],
+  planner_max: ['seating', 'timeline', 'vendors'],
 };
 
-/** Max guests per tier; null = unlimited. */
+/** Max guests per wedding by tier; null = unlimited (all tiers, for now). */
 export const GUEST_CAP: Record<Tier, number | null> = {
-  standard: 100,
-  pro: null,
-  planner: null,
+  couple: null,
+  planner_pro: null,
+  planner_max: null,
 };
 
 /** Human label for a gated feature (used in upgrade prompts). */
@@ -73,9 +75,9 @@ export const FEATURE_LABEL: Record<Feature, string> = {
 
 /** The lowest tier that includes a given feature (for "Upgrade to X" copy). */
 export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
-  seating: 'pro',
-  timeline: 'pro',
-  vendors: 'pro',
+  seating: 'couple',
+  timeline: 'couple',
+  vendors: 'couple',
 };
 
 export function tierHasFeature(tier: Tier, feature: Feature): boolean {
@@ -83,6 +85,25 @@ export function tierHasFeature(tier: Tier, feature: Feature): boolean {
 }
 export function guestCapFor(tier: Tier): number | null {
   return GUEST_CAP[tier];
+}
+
+// ── Wedding (workspace) limits — the real tier differentiator ─────────────────
+/** How many weddings each tier covers. Couple = a single wedding; the Planner
+ *  tiers are account-level and cover this many weddings under one plan. */
+export const WEDDING_LIMIT: Record<Tier, number> = {
+  couple: 1,
+  planner_pro: 5,
+  planner_max: 50,
+};
+
+/** The account-level, multi-wedding planner tiers. */
+export const PLANNER_TIERS: Tier[] = ['planner_pro', 'planner_max'];
+
+export function isPlannerTier(tier: Tier): boolean {
+  return tier === 'planner_pro' || tier === 'planner_max';
+}
+export function weddingLimitFor(tier: Tier): number {
+  return WEDDING_LIMIT[tier];
 }
 
 // ── Term parameters (fill-in-later set) ──────────────────────────────────────

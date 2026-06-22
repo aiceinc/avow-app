@@ -140,7 +140,7 @@ export const handleWebhook = internalAction({
 
       const item = sub.items?.data?.[0];
       const interval = sub.metadata?.interval ?? item?.price?.recurring?.interval ?? "month";
-      const tier = sub.metadata?.tier ?? "standard";
+      const tier = sub.metadata?.tier ?? "couple";
       // current_period_end moved from the subscription to the subscription item
       // in Stripe's 2025 API — read from the item, falling back to the sub for
       // older API versions.

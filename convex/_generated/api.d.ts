@@ -25,6 +25,7 @@ import type * as stripe from "../stripe.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as tables from "../tables.js";
 import type * as tasks from "../tasks.js";
+import type * as testSeed from "../testSeed.js";
 import type * as timeline from "../timeline.js";
 import type * as vendors from "../vendors.js";
 import type * as weddingSite from "../weddingSite.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   tables: typeof tables;
   tasks: typeof tasks;
+  testSeed: typeof testSeed;
   timeline: typeof timeline;
   vendors: typeof vendors;
   weddingSite: typeof weddingSite;

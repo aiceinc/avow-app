@@ -7,6 +7,8 @@ import {
   type Tier,
   type Feature,
   isTier,
+  isPlannerTier,
+  weddingLimitFor,
   tierHasFeature,
   guestCapFor,
   FEATURE_LABEL,
@@ -84,39 +86,55 @@ const TRIAL_ENDED_MESSAGE =
  * Date.now). `tier` is the live subscription's tier, or TRIAL_TIER while in the
  * free trial, or null when locked (trial over, no live subscription).
  */
-/** Max weddings (workspaces) a single Planner plan covers. */
-export const PLANNER_WORKSPACE_LIMIT = 10;
-
-/** True if `userId` holds an active (incl. dunning-grace) Planner subscription —
- *  i.e. they are a Planner account whose plan covers up to PLANNER_WORKSPACE_LIMIT
- *  weddings. Works in query or mutation context. */
-export async function userHasActivePlanner(
+/** The highest active (incl. dunning-grace) Planner tier `userId` holds, or null
+ *  if they aren't a Planner account. Planner tiers are account-level and cover
+ *  multiple weddings (see weddingLimitFor). Works in query or mutation context. */
+export async function userActivePlannerTier(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">
-): Promise<boolean> {
+): Promise<Tier | null> {
   const subs = await ctx.db
     .query("subscriptions")
     .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", userId))
     .take(20);
-  return subs.some(
-    (s) => s.tier === "planner" && EDIT_GRACE_STATUSES.includes(s.status)
+  const active = subs.filter(
+    (s) =>
+      EDIT_GRACE_STATUSES.includes(s.status) &&
+      isTier(s.tier) &&
+      isPlannerTier(s.tier as Tier)
   );
+  if (active.some((s) => s.tier === "planner_max")) return "planner_max";
+  if (active.some((s) => s.tier === "planner_pro")) return "planner_pro";
+  return null;
 }
 
-/** True if any member of the workspace is a Planner account (so the workspace is
- *  covered by that planner's plan — Pro-level features). */
-export async function workspaceHasPlannerMember(
+/** The Planner tier covering a workspace (when a member holds a Planner plan),
+ *  preferring the highest — or null if no member is a Planner account. */
+export async function workspacePlannerCoverage(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<"workspaces">
-): Promise<boolean> {
+): Promise<Tier | null> {
   const members = await ctx.db
     .query("workspaceMembers")
     .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
     .take(5);
+  let best: Tier | null = null;
   for (const m of members) {
-    if (await userHasActivePlanner(ctx, m.userId)) return true;
+    const pt = await userActivePlannerTier(ctx, m.userId);
+    if (pt === "planner_max") return "planner_max";
+    if (pt === "planner_pro") best = "planner_pro";
   }
-  return false;
+  return best;
+}
+
+/** How many weddings the user is entitled to create/manage: their Planner tier's
+ *  limit, or 1 for a Couple / trial user. */
+export async function weddingLimitForUser(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<number> {
+  const pt = await userActivePlannerTier(ctx, userId);
+  return pt ? weddingLimitFor(pt) : 1;
 }
 
 async function computeAccess(
@@ -124,17 +142,17 @@ async function computeAccess(
   workspaceId: Id<"workspaces">
 ): Promise<{ tier: Tier | null; canEdit: boolean }> {
   // Account-level Planner coverage is the strongest grant — a member's Planner
-  // plan unlocks Pro-level features here regardless of this workspace's own sub.
-  if (await workspaceHasPlannerMember(ctx, workspaceId)) {
-    return { tier: "planner", canEdit: true };
-  }
+  // plan covers this workspace regardless of its own subscription.
+  const coverage = await workspacePlannerCoverage(ctx, workspaceId);
+  if (coverage) return { tier: coverage, canEdit: true };
+
   const subs = await ctx.db
     .query("subscriptions")
     .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
     .take(50);
   const live = subs.find((s) => EDIT_GRACE_STATUSES.includes(s.status));
   if (live) {
-    return { tier: isTier(live.tier) ? live.tier : "standard", canEdit: true };
+    return { tier: isTier(live.tier) ? live.tier : "couple", canEdit: true };
   }
   const ws = await ctx.db.get(workspaceId);
   if (ws && Date.now() < trialEndsAtFor(ws)) {
@@ -194,7 +212,7 @@ export async function assertGuestCapacity(
     .take(cap + 1);
   if (existing.length >= cap) {
     throw new Error(
-      `Your plan is limited to ${cap} guests. Upgrade to Pro for unlimited guests.`
+      `Your plan is limited to ${cap} guests. Upgrade your plan for more.`
     );
   }
 }

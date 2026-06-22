@@ -23,6 +23,7 @@ import {
   type Interval,
   isTier,
   isInterval,
+  isPlannerTier,
   AUTO_RENEW_DISCLOSURE,
   REFUND_POLICY_TEXT,
 } from '@/convex/billingConfig';
@@ -232,7 +233,7 @@ function BillingSection() {
   const live = subscription && ['active', 'trialing', 'past_due'].includes(subscription.status);
   const tierName = (id: string) => TIERS.find((t) => t.id === id)?.name ?? id;
   // This workspace has no own subscription but is covered by a member's Planner plan.
-  const coveredByPlanner = !live && entitlement.tier === 'planner';
+  const coveredByPlanner = !live && entitlement.tier != null && isPlannerTier(entitlement.tier);
 
   return (
     <section className="border border-rule rounded-xl bg-white/60 p-5">

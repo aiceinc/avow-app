@@ -19,8 +19,8 @@ export type BillingStatus = 'loading' | 'trial' | 'active' | 'past_due' | 'locke
 
 export type Entitlement = {
   status: BillingStatus;
-  /** Effective plan tier: the live subscription's tier, 'standard' during the
-   *  free trial, or null when locked. Drives per-tier feature gating. */
+  /** Effective plan tier: the live subscription's tier, 'couple' during the
+   *  free trial, or null when locked. Drives per-tier limits. */
   tier: Tier | null;
   /** False only when the trial has lapsed with no live subscription (read-only). */
   canEdit: boolean;

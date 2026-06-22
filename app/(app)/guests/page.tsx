@@ -140,7 +140,7 @@ export default function GuestsPage() {
 
         {atCap && (
           <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-ink-soft flex items-center justify-between gap-3">
-            <span>You&rsquo;ve reached the <strong>{cap}-guest</strong> limit on your plan. Upgrade to Pro for unlimited guests.</span>
+            <span>You&rsquo;ve reached the <strong>{cap}-guest</strong> limit on your plan. Upgrade your plan for more.</span>
             <Link href="/account" className="shrink-0 underline font-medium hover:opacity-80">Upgrade &rarr;</Link>
           </div>
         )}

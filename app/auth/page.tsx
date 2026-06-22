@@ -52,8 +52,9 @@ function friendlyError(raw: string, flow: Flow): string {
 }
 
 type Tier = {
-  tier: string;
-  monthly: number; // annual price is monthly × 12 (no discount, for now)
+  id: string;     // billingConfig tier id (passed to checkout)
+  tier: string;   // display name
+  monthly: number; // annual price is monthly × 12, then 20% off
   tagline: string;
   perks: string[];
   featured?: boolean;
@@ -65,24 +66,27 @@ const ANNUAL_DISCOUNT = 0.2;
 
 const TIERS: Tier[] = [
   {
-    tier: 'Standard',
+    id: 'couple',
+    tier: 'Couple',
     monthly: 49,
-    tagline: 'Everything you need for a straightforward, well-organised wedding.',
-    perks: ['Guest list & RSVPs up to 100', 'Budget tracker', 'Wedding website', 'Spreadsheet exports'],
+    tagline: 'Everything to plan your own wedding, beautifully, in one place.',
+    perks: ['Unlimited guests & RSVPs', 'Seating planner', 'Budget tracker', 'Day-of timeline', 'Vendor management', 'Wedding website'],
   },
   {
-    tier: 'Pro',
+    id: 'planner_pro',
+    tier: 'Planner Pro',
     monthly: 99,
-    tagline: 'For larger weddings or couples who want every feature without limits.',
-    perks: ['Unlimited guests', 'Seating planner', 'Day-of timeline', 'Vendor management', 'Chat support'],
+    tagline: 'For wedding planners building their book of business.',
+    perks: ['Everything in Couple', 'Up to 5 weddings', 'All your clients in one place'],
     featured: true,
     badge: 'Most popular',
   },
   {
-    tier: 'Planner',
+    id: 'planner_max',
+    tier: 'Planner Max',
     monthly: 399,
-    tagline: 'For professional wedding planners managing multiple couples at once.',
-    perks: ['Everything in Pro +', 'Up to 10 weddings', 'Client-facing portal', 'Branded exports', 'Dedicated support & chat'],
+    tagline: 'For established studios running many weddings at once.',
+    perks: ['Everything in Planner Pro', 'Up to 50 weddings', 'Client portal (coming soon)', 'Branded exports (coming soon)', 'Priority support'],
   },
 ];
 
@@ -468,7 +472,7 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
         ))}
       </div>
       <button
-        onClick={() => onChoose(tier.tier.toLowerCase(), annual ? 'year' : 'month')}
+        onClick={() => onChoose(tier.id, annual ? 'year' : 'month')}
         className={`block w-full text-center text-sm font-medium py-3 rounded-sm mt-6 tracking-wide transition-colors border ${
           tier.featured
             ? 'bg-ink text-bg border-ink hover:opacity-85'

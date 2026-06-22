@@ -181,7 +181,7 @@ function deriveEntitlement(
   const tier = e.hasSubscription
     ? isTier(e.tier ?? '')
       ? (e.tier as Entitlement['tier'])
-      : 'standard'
+      : 'couple'
     : inTrial
     ? TRIAL_TIER
     : null;

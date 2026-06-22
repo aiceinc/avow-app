@@ -5,8 +5,7 @@ import {
   requireAuth,
   assertMember,
   assertCanEdit,
-  userHasActivePlanner,
-  PLANNER_WORKSPACE_LIMIT,
+  weddingLimitForUser,
 } from "./lib";
 
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
@@ -100,18 +99,19 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
 
-    // Planner plans cover up to PLANNER_WORKSPACE_LIMIT weddings. Cap creation
-    // for a Planner account once they're already in that many workspaces.
-    if (await userHasActivePlanner(ctx, userId)) {
-      const mine = await ctx.db
-        .query("workspaceMembers")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .take(PLANNER_WORKSPACE_LIMIT + 1);
-      if (mine.length >= PLANNER_WORKSPACE_LIMIT) {
-        throw new Error(
-          `Your Planner plan covers up to ${PLANNER_WORKSPACE_LIMIT} weddings.`
-        );
-      }
+    // Each plan covers a fixed number of weddings (Couple = 1; Planner tiers
+    // more). Block creation once the user is already in that many workspaces.
+    const weddingLimit = await weddingLimitForUser(ctx, userId);
+    const mine = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .take(weddingLimit + 1);
+    if (mine.length >= weddingLimit) {
+      throw new Error(
+        weddingLimit <= 1
+          ? "Your plan covers a single wedding. Upgrade to a Planner plan to manage multiple weddings."
+          : `Your Planner plan covers up to ${weddingLimit} weddings.`
+      );
     }
 
     // Create the workspace

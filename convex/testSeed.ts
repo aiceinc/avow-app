@@ -2,8 +2,8 @@
  * testSeed.ts — DEV / TEST-MODE ONLY helpers for managing test accounts.
  *
  * Run with `npx convex run` against the DEV deployment, e.g.:
- *   npx convex run testSeed:createTestAccount '{"email":"pro@test.com","password":"testpassword","tier":"pro","workspaceName":"Pro Test Wedding"}'
- *   npx convex run testSeed:seedSubscription  '{"email":"pro@test.com","tier":"pro"}'
+ *   npx convex run testSeed:createTestAccount '{"email":"plannerpro@test.com","password":"testpassword","tier":"planner_pro","workspaceName":"Planner Pro Studio"}'
+ *   npx convex run testSeed:seedSubscription  '{"email":"plannerpro@test.com","tier":"planner_max"}'
  *   npx convex run testSeed:wipeUser          '{"email":"old@test.com"}'
  *
  * Every function is HARD-GUARDED to @test.com / @avow.test emails so it can never
@@ -40,7 +40,7 @@ export const createTestAccount = internalAction({
   args: {
     email: v.string(),
     password: v.string(),
-    tier: v.string(), // 'free' | 'none' | 'standard' | 'pro' | 'planner'
+    tier: v.string(), // 'free' | 'none' | 'couple' | 'planner_pro' | 'planner_max'
     workspaceName: v.string(),
   },
   handler: async (ctx, args): Promise<{ email: string; tier: string }> => {
