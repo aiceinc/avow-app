@@ -18,6 +18,7 @@ import { useState, useEffect, useRef } from 'react';
 import GuestPanel from '@/app/components/GuestPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import TableShapeIcon from '@/app/components/TableShapeIcon';
+import ObjectIcon from '@/app/components/ObjectIcon';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { TEMPLATES, TemplateKey, suggestTemplateKey } from '@/app/lib/templates';
 import { OBJECT_PRESETS, type ObjectPreset } from '@/app/lib/objects';
@@ -130,6 +131,15 @@ export default function SeatingPage() {
   const canApply     = targetSeats >= 1;
   const suggestedKey = suggestTemplateKey(targetSeats);
 
+  // Template preview/apply: clicking a template opens a Preview / Use panel
+  // rather than applying immediately. Preview overlays it without clearing.
+  const [tplKey,    setTplKey]    = useState<TemplateKey | null>(null);
+  const [previewOn, setPreviewOn] = useState(false);
+  const previewTables =
+    previewOn && tplKey && canApply
+      ? TEMPLATES[tplKey].build(canvasSize.width, canvasSize.height, Math.max(1, targetSeats))
+      : null;
+
   const [modal, setModal] = useState<{
     message: string; confirmLabel: string; destructive: boolean; onConfirm: () => void;
   } | null>(null);
@@ -240,13 +250,23 @@ export default function SeatingPage() {
     );
   }
 
-  function handleApplyTemplate(key: TemplateKey) {
-    if (!canApply || !activeLayoutId) return;
+  // Clicking a template opens the Preview / Use panel; it isn't applied yet.
+  function selectTemplate(key: TemplateKey) {
+    if (!canApply) return;
     setTemplateMenuOpen(false);
+    setTplKey(key);
+    setPreviewOn(false);
+  }
+
+  function useSelectedTemplate() {
+    const key = tplKey;
+    if (!key || !canApply || !activeLayoutId) return;
     const seats = Math.max(1, targetSeats);
     const apply = async () => {
       closeModal();
       setSelectedTableId(null);
+      setPreviewOn(false);
+      setTplKey(null);
       await clearAll({ workspaceId, layoutId: activeLayoutId as Id<'seatingLayouts'> });
       await createBatch({
         workspaceId,
@@ -254,7 +274,7 @@ export default function SeatingPage() {
         tables: TEMPLATES[key].build(canvasSize.width, canvasSize.height, seats),
       });
     };
-    if (tables.length > 0) showConfirm('This will clear this layout. Continue?', apply);
+    if (tables.length > 0) showConfirm('This will clear this layout and apply the template. Continue?', apply);
     else apply();
   }
 
@@ -317,87 +337,108 @@ export default function SeatingPage() {
     <>
       <div className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* Left sidebar — table tools */}
-        <div className="w-44 border-r border-rule bg-bg/60 flex flex-col shrink-0 p-3 overflow-y-auto">
-          <p className="text-xs font-medium text-ink-faint mb-2 px-1">Add tables</p>
+        {/* Left sidebar — table tools (matched to the guest panel width) */}
+        <div className="w-72 border-r border-rule bg-bg/60 flex flex-col shrink-0">
+          <div className="flex-1 overflow-y-auto p-3">
+            <p className="text-xs font-medium text-ink-faint mb-2 px-1">Add tables</p>
 
-          <button onClick={() => handleAddTable('round')} className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2">
-            Add <TableShapeIcon shape="round" />
-          </button>
-          <button onClick={() => handleAddTable('rectangular')} className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2">
-            Add <TableShapeIcon shape="rectangular" />
-          </button>
+            <button onClick={() => handleAddTable('round')} className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2">
+              Add <TableShapeIcon shape="round" />
+            </button>
+            <button onClick={() => handleAddTable('rectangular')} className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2">
+              Add <TableShapeIcon shape="rectangular" />
+            </button>
 
-          {/* Add object */}
-          <div className="relative mb-3" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setObjectMenuOpen(o => !o)} className="btn btn-secondary w-full text-sm px-3 py-2">Add object ▾</button>
-            {objectMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden">
-                {OBJECT_PRESETS.map((p) => (
-                  <button key={p.key} onClick={() => handleAddObject(p)} className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-bg-tint border-b last:border-0 border-rule transition-colors">{p.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Template picker */}
-          <div className="relative" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setTemplateMenuOpen(o => !o)} className="btn btn-secondary w-full text-sm px-3 py-2">Use Template ▾</button>
-            {templateMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 w-72 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden max-h-[28rem] overflow-y-auto">
-                <div className="px-4 py-3 border-b border-rule bg-bg-tint/40 sticky top-0">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-medium text-ink">Seats to plan for</span>
-                    <label className="flex items-center gap-1.5 text-xs text-ink-soft cursor-pointer select-none">
-                      <input type="checkbox" checked={customSeats} onChange={(e) => { const on = e.target.checked; setCustomSeats(on); if (on) setCustomSeatCount(guests.length); }} />
-                      Custom
-                    </label>
-                  </div>
-                  <input type="number" min={1} value={customSeats ? customSeatCount : guests.length} disabled={!customSeats}
-                    onChange={(e) => setCustomSeatCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    className="app-input w-full text-sm px-2 py-1.5 disabled:opacity-60" />
-                  <p className="text-[0.65rem] text-ink-faint mt-1">
-                    {customSeats ? 'Using a custom guest count.' : `Auto-filled from your ${guests.length} guest${guests.length === 1 ? '' : 's'}.`}
-                  </p>
-                </div>
-                {!canApply && (
-                  <p className="px-4 py-3 text-xs text-ink-faint">Add guests, or turn on <strong>Custom</strong> and enter a number, to generate a layout.</p>
-                )}
-                {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(([key, tmpl]) => {
-                  const { tableCount, totalSeats } = tmpl.plan(Math.max(1, targetSeats));
-                  return (
-                    <button key={key} onClick={() => handleApplyTemplate(key)} disabled={!canApply}
-                      className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-ink">{tmpl.label}</span>
-                        {canApply && key === suggestedKey && (
-                          <span className="text-[0.55rem] uppercase tracking-wide font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded">Suggested</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
-                      {canApply && <div className="text-[0.7rem] text-accent mt-1">{tableCount} table{tableCount === 1 ? '' : 's'} · {totalSeats} seats</div>}
+            {/* Add object — icon grid */}
+            <div className="relative mb-3" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setObjectMenuOpen(o => !o)} className="btn btn-secondary w-full text-sm px-3 py-2">Add object ▾</button>
+              {objectMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 w-full bg-white border border-rule rounded-lg shadow-lg z-50 p-2 grid grid-cols-4 gap-1">
+                  {OBJECT_PRESETS.map((p) => (
+                    <button key={p.key} onClick={() => handleAddObject(p)} title={p.label}
+                      className="aspect-square flex items-center justify-center rounded-md text-ink-soft hover:text-ink hover:bg-bg-tint transition-colors">
+                      <ObjectIcon name={p.key} />
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Template picker */}
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setTemplateMenuOpen(o => !o)} className="btn btn-secondary w-full text-sm px-3 py-2">Use Template ▾</button>
+              {templateMenuOpen && (
+                <div className="absolute left-0 top-full mt-1 w-full bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden max-h-[24rem] overflow-y-auto">
+                  <div className="px-4 py-3 border-b border-rule bg-bg-tint/40 sticky top-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-ink">Seats to plan for</span>
+                      <label className="flex items-center gap-1.5 text-xs text-ink-soft cursor-pointer select-none">
+                        <input type="checkbox" checked={customSeats} onChange={(e) => { const on = e.target.checked; setCustomSeats(on); if (on) setCustomSeatCount(guests.length); }} />
+                        Custom
+                      </label>
+                    </div>
+                    <input type="number" min={1} value={customSeats ? customSeatCount : guests.length} disabled={!customSeats}
+                      onChange={(e) => setCustomSeatCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="app-input w-full text-sm px-2 py-1.5 disabled:opacity-60" />
+                    <p className="text-[0.65rem] text-ink-faint mt-1">
+                      {customSeats ? 'Using a custom guest count.' : `Auto-filled from your ${guests.length} guest${guests.length === 1 ? '' : 's'}.`}
+                    </p>
+                  </div>
+                  {!canApply && (
+                    <p className="px-4 py-3 text-xs text-ink-faint">Add guests, or turn on <strong>Custom</strong> and enter a number, to generate a layout.</p>
+                  )}
+                  {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(([key, tmpl]) => {
+                    const { tableCount, totalSeats } = tmpl.plan(Math.max(1, targetSeats));
+                    return (
+                      <button key={key} onClick={() => selectTemplate(key)} disabled={!canApply}
+                        className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-ink">{tmpl.label}</span>
+                          {canApply && key === suggestedKey && (
+                            <span className="text-[0.55rem] uppercase tracking-wide font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded">Suggested</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
+                        {canApply && <div className="text-[0.7rem] text-accent mt-1">{tableCount} table{tableCount === 1 ? '' : 's'} · {totalSeats} seats</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Selected template — Preview / Use panel */}
+            {tplKey && (
+              <div className="mt-2 border border-rule rounded-lg p-2.5 bg-bg-tint/30">
+                <p className="text-xs text-ink mb-2">{TEMPLATES[tplKey].label}{previewOn && <span className="text-accent"> · previewing</span>}</p>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setPreviewOn(o => !o)} className={`btn text-xs px-2 py-1.5 flex-1 ${previewOn ? 'btn-primary' : 'btn-secondary'}`}>
+                    {previewOn ? 'Exit preview' : 'Preview'}
+                  </button>
+                  <button onClick={useSelectedTemplate} className="btn btn-primary text-xs px-2 py-1.5 flex-1">Use this template</button>
+                </div>
               </div>
             )}
+
+            {/* Venue size — to-scale boundary you can drag-resize on the canvas */}
+            <div className="mt-3 pt-3 border-t border-rule" onClick={e => e.stopPropagation()}>
+              <p className="text-xs font-medium text-ink-faint mb-2 px-1">Venue size</p>
+              <div className="flex items-start gap-2 mb-2">
+                <VenueField label="Width" value={wVal} unit={wUnit} onChange={setVenueWInput} onToggleUnit={() => toggleUnit('w')} />
+                <span className="text-ink-faint text-xs mt-6">×</span>
+                <VenueField label="Length" value={lVal} unit={lUnit} onChange={setVenueLInput} onToggleUnit={() => toggleUnit('l')} />
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={applyVenue} className="btn btn-secondary text-xs px-2 py-1.5 flex-1">Set venue</button>
+                {venueW != null && <button onClick={clearVenue} className="text-xs text-ink-faint hover:text-red-600 transition-colors">Clear</button>}
+              </div>
+            </div>
           </div>
 
-          {/* Venue size — to-scale boundary you can drag-resize on the canvas */}
-          <div className="mt-3 pt-3 border-t border-rule" onClick={e => e.stopPropagation()}>
-            <p className="text-xs font-medium text-ink-faint mb-2 px-1">Venue size</p>
-            <div className="flex items-start gap-2 mb-2">
-              <VenueField label="Width" value={wVal} unit={wUnit} onChange={setVenueWInput} onToggleUnit={() => toggleUnit('w')} />
-              <span className="text-ink-faint text-xs mt-6">×</span>
-              <VenueField label="Length" value={lVal} unit={lUnit} onChange={setVenueLInput} onToggleUnit={() => toggleUnit('l')} />
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={applyVenue} className="btn btn-secondary text-xs px-2 py-1.5 flex-1">Set venue</button>
-              {venueW != null && <button onClick={clearVenue} className="text-xs text-ink-faint hover:text-red-600 transition-colors">Clear</button>}
-            </div>
+          {/* Start over — pinned to the bottom */}
+          <div className="p-3 border-t border-rule shrink-0">
+            <button onClick={handleResetAll} className="btn btn-danger w-full text-sm px-3 py-2">Start over</button>
           </div>
-
-          <button onClick={handleResetAll} className="btn btn-danger w-full text-sm px-3 py-2 mt-3">Start over</button>
         </div>
 
         {/* Canvas column — layout tabs above the canvas */}
@@ -438,6 +479,7 @@ export default function SeatingPage() {
             venueWidthFt={venueW}
             venueHeightFt={venueL}
             onVenueResize={handleVenueResize}
+            previewTables={previewTables}
             editLabel={editLabel}
             editSeatCount={editSeatCount}
             onEditLabel={setEditLabel}
@@ -475,20 +517,26 @@ function VenueField({
   onToggleUnit: () => void;
 }) {
   return (
-    <div className="flex-1">
+    <div className="flex-1 min-w-0">
       <label className="block text-[0.6rem] text-ink-faint mb-0.5 px-0.5">{label}</label>
       <input
         type="number" min={1} step="0.1"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="app-input w-full text-xs px-2 py-1.5 tabular-nums"
+        className="app-input w-full text-xs px-2 py-1.5 tabular-nums text-center"
       />
+      {/* ft / m — sliding pill switch */}
       <button
+        type="button"
         onClick={onToggleUnit}
-        className="mt-1 w-full text-[0.6rem] text-ink-soft border border-rule rounded px-1 py-0.5 hover:bg-bg-tint transition-colors"
-        title="Toggle feet / metres"
+        aria-label={`Unit: ${unit === 'ft' ? 'feet' : 'metres'} — tap to switch`}
+        className="relative mt-1 flex w-full rounded-full bg-bg-tint p-0.5 text-[0.6rem] select-none"
       >
-        {unit === 'ft' ? 'ft' : 'm'}
+        <span
+          className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-white shadow-sm transition-transform duration-150 ${unit === 'm' ? 'translate-x-full' : ''}`}
+        />
+        <span className={`relative z-10 flex-1 text-center py-0.5 transition-colors ${unit === 'ft' ? 'text-ink font-medium' : 'text-ink-faint'}`}>ft</span>
+        <span className={`relative z-10 flex-1 text-center py-0.5 transition-colors ${unit === 'm' ? 'text-ink font-medium' : 'text-ink-faint'}`}>m</span>
       </button>
     </div>
   );

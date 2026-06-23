@@ -313,6 +313,37 @@ function GhostTable({ clip, x, y }: { clip: ClipboardTable; x: number; y: number
   );
 }
 
+// ── PreviewTable ───────────────────────────────────────────────────────────────
+
+/**
+ * Ghosted preview of a template table (default sizes), rendered over the existing
+ * layout while the user previews a template. Non-interactive.
+ */
+function PreviewTable({
+  table,
+}: {
+  table: { shape: 'round' | 'rectangular'; seatCount: number; x: number; y: number; rotation: number };
+}) {
+  const r = getRadius();
+  const w = getWidth();
+  const h = getHeight();
+  return (
+    <Group x={table.x} y={table.y} rotation={table.rotation} listening={false}>
+      {table.shape === 'round' ? (
+        <Circle radius={r} fill={C.tableFill} stroke={C.tableStrokeSelect} strokeWidth={2} dash={[5, 4]} />
+      ) : (
+        <Rect x={-w / 2} y={-h / 2} width={w} height={h} fill={C.tableFill} stroke={C.tableStrokeSelect} strokeWidth={2} cornerRadius={5} dash={[5, 4]} />
+      )}
+      {Array.from({ length: table.seatCount }, (_, i) => {
+        const local = getSeatLocalPosition(table.shape, table.seatCount, i);
+        return (
+          <Circle key={i} x={local.x} y={local.y} radius={SEAT_RADIUS} fill={C.seatEmpty} stroke={C.seatEmptyStroke} strokeWidth={1} />
+        );
+      })}
+    </Group>
+  );
+}
+
 // ── FloatingEditPanel ──────────────────────────────────────────────────────────
 
 /**
@@ -473,6 +504,7 @@ type Props = {
   venueWidthFt?:      number;
   venueHeightFt?:     number;
   onVenueResize?:     (widthFt: number, lengthFt: number) => void;
+  previewTables?:     { shape: 'round' | 'rectangular'; seatCount: number; x: number; y: number; rotation: number; label?: string }[] | null;
   editLabel:          string;
   editSeatCount:      number;
   onEditLabel:        (v: string) => void;
@@ -498,6 +530,7 @@ export default function SeatingCanvas({
   venueWidthFt,
   venueHeightFt,
   onVenueResize,
+  previewTables,
   editLabel,
   editSeatCount,
   onEditLabel,
@@ -1038,6 +1071,15 @@ export default function SeatingCanvas({
             <GhostTable clip={clipboard} x={ghostPos.x} y={ghostPos.y} />
           )}
         </Layer>
+
+        {/* Template preview overlay — ghosted tables shown over the existing layout */}
+        {previewTables && previewTables.length > 0 && (
+          <Layer listening={false} opacity={0.5}>
+            {previewTables.map((t, i) => (
+              <PreviewTable key={i} table={t} />
+            ))}
+          </Layer>
+        )}
 
         {/* Rotate-mode overlay: world-aligned crosshairs + ring */}
         {rotateMode && selectedTable && (
