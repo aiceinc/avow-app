@@ -70,6 +70,14 @@ export default function ObjectIcon({ name, size = 20 }: { name: string; size?: n
           <rect x="12" y="12" width="8" height="8" fill="currentColor" stroke="none" opacity="0.18" />
         </svg>
       );
+    case 'djband':
+      return (
+        <svg {...p} aria-hidden>
+          <path d="M9.4 18V6l10-2v12" />
+          <circle cx="7" cy="18" r="2.6" fill="currentColor" stroke="none" />
+          <circle cx="17" cy="16" r="2.6" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return (
         <svg {...p} aria-hidden>

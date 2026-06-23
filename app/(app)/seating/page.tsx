@@ -387,20 +387,42 @@ export default function SeatingPage() {
               </div>
             )}
 
-            {/* Add tables & objects — each click drops one onto the canvas */}
-            <div className="mt-3 pt-3 border-t border-rule space-y-2">
-              <button onClick={() => handleAddTable('round')} className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-between gap-2">
-                <span>+ Round table</span><TableShapeIcon shape="round" />
-              </button>
-              <button onClick={() => handleAddTable('rectangular')} className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-between gap-2">
-                <span>+ Rectangular table</span><TableShapeIcon shape="rectangular" />
-              </button>
-              {OBJECT_PRESETS.map((p) => (
-                <button key={p.key} onClick={() => handleAddObject(p)} className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-between gap-2">
-                  <span>+ {p.label}</span><ObjectIcon name={p.key} size={18} />
+            {/* Tables — guest tables + table-style objects (compact 2-col grid) */}
+            <div className="mt-3 pt-3 border-t border-rule">
+              <p className="text-[0.65rem] font-semibold text-ink-faint mb-1.5 px-0.5 uppercase tracking-wide">Tables</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button onClick={() => handleAddTable('round')} className="btn btn-secondary text-xs px-2 py-1.5 flex items-center justify-center gap-1.5">
+                  Round <TableShapeIcon shape="round" />
                 </button>
-              ))}
+                <button onClick={() => handleAddTable('rectangular')} className="btn btn-secondary text-xs px-2 py-1.5 flex items-center justify-center gap-1.5">
+                  Rectangular <TableShapeIcon shape="rectangular" />
+                </button>
+                {OBJECT_PRESETS.filter(p => p.group === 'table').map((p) => (
+                  <button key={p.key} onClick={() => handleAddObject(p)} className="btn btn-secondary text-xs px-2 py-1.5 flex items-center justify-center gap-1.5">
+                    {p.label} <ObjectIcon name={p.key} size={16} />
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Features — non-seating areas (bar, stage, dance floor, DJ/band) */}
+            <div className="mt-3">
+              <p className="text-[0.65rem] font-semibold text-ink-faint mb-1.5 px-0.5 uppercase tracking-wide">Features</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {OBJECT_PRESETS.filter(p => p.group === 'feature').map((p) => (
+                  <button key={p.key} onClick={() => handleAddObject(p)} className="btn btn-secondary text-xs px-2 py-1.5 flex items-center justify-center gap-1.5">
+                    {p.label} <ObjectIcon name={p.key} size={16} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generic object */}
+            {OBJECT_PRESETS.filter(p => p.group === 'other').map((p) => (
+              <button key={p.key} onClick={() => handleAddObject(p)} className="btn btn-secondary w-full text-xs px-3 py-1.5 mt-2 flex items-center justify-center gap-1.5">
+                + New object <ObjectIcon name={p.key} size={16} />
+              </button>
+            ))}
 
             {/* Venue size — to-scale boundary you can drag-resize on the canvas */}
             <div className="mt-3 pt-3 border-t border-rule" onClick={e => e.stopPropagation()}>

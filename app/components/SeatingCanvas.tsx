@@ -377,6 +377,12 @@ function KonvaObjectIcon({ kind, size }: { kind: string; size: number }) {
         <Rect x={4} y={4} width={8} height={8} fill={col} opacity={0.18} listening={false} />
         <Rect x={12} y={12} width={8} height={8} fill={col} opacity={0.18} listening={false} />
       </>); break;
+    case 'djband':
+      shapes = (<>
+        <Path data="M9.4 18V6l10-2v12" {...base} />
+        {dot(7, 18, 2.6)}
+        {dot(17, 16, 2.6)}
+      </>); break;
     default:
       shapes = (<>
         <Rect x={5} y={5} width={14} height={14} cornerRadius={2} {...base} />
