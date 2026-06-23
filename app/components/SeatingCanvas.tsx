@@ -15,7 +15,7 @@
  */
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Stage, Layer, Circle, Rect, Text, Group, Arrow, Line } from 'react-konva';
+import { Stage, Layer, Circle, Rect, Text, Group, Arrow, Line, Path } from 'react-konva';
 import { useMutation, useQuery } from 'convex/react';
 import { useConvexAuth } from '@convex-dev/auth/react';
 import { api } from '@/convex/_generated/api';
@@ -170,6 +170,10 @@ function TableNode({
                     : isObject ? C.objectStroke
                     : C.tableStroke;
   const bodyFill    = isObject ? C.objectFill : C.tableFill;
+  // Icon size for objects — scaled to fit the object's footprint.
+  const objIconSize = isObject
+    ? Math.max(20, Math.min(52, (table.shape === 'round' ? getRadius(table) * 2 : Math.min(getWidth(table), getHeight(table))) * 0.55))
+    : 0;
   const strokeWidth = (active || isSelected) ? 2 : 1.5;
   const dash        = active ? ([5, 3] as number[]) : undefined;
 
@@ -218,9 +222,12 @@ function TableNode({
         return <Placemat key={`pm-${i}`} x={p.x} y={p.y} rotation={p.rotation} />;
       })}
 
-      {/* Labels — counter-rotated so they stay upright when the table is rotated */}
+      {/* Labels — counter-rotated so they stay upright when the table is rotated.
+          Objects show their symbol instead of a text label. */}
       <Group rotation={-rotation} listening={false}>
-        {table.label ? (
+        {isObject ? (
+          <KonvaObjectIcon kind={table.objectKind ?? 'object'} size={objIconSize} />
+        ) : table.label ? (
           <Text
             text={table.label} x={-60} y={-9} width={120}
             align="center" fontSize={11} fill={C.labelText}
@@ -232,7 +239,7 @@ function TableNode({
             resize, hidden once you click away. */}
         {isSelected ? (
           <Text
-            text={dimLabel} x={-60} y={table.label ? 7 : -5} width={120}
+            text={dimLabel} x={-60} y={isObject ? objIconSize / 2 + 3 : (table.label ? 7 : -5)} width={120}
             align="center" fontSize={10} fill={C.tableStrokeSelect}
             fontFamily="system-ui, sans-serif" listening={false}
           />
@@ -309,6 +316,76 @@ function GhostTable({ clip, x, y }: { clip: ClipboardTable; x: number; y: number
           />
         );
       })}
+    </Group>
+  );
+}
+
+// ── KonvaObjectIcon ──────────────────────────────────────────────────────────
+
+/**
+ * The object presets' line-art symbols, rendered as Konva shapes (mirrors
+ * app/components/ObjectIcon.tsx) so an object table shows its icon in place of a
+ * text label. Drawn in a 24-unit box, scaled to `size` and centered on (0,0).
+ */
+function KonvaObjectIcon({ kind, size }: { kind: string; size: number }) {
+  const s = size / 24;
+  const col = C.labelText;
+  const base = { stroke: col, strokeWidth: 1.6, lineCap: 'round' as const, lineJoin: 'round' as const, listening: false };
+  const dot = (x: number, y: number, r: number) => <Circle x={x} y={y} radius={r} fill={col} listening={false} />;
+  let shapes: React.ReactNode;
+  switch (kind) {
+    case 'cake':
+      shapes = (<>
+        <Path data="M4 20h16v-7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7Z" {...base} />
+        <Path data="M4 15.5c1.6 1.2 3.2 1.2 4 0s2-1.2 2 0 2 1.2 2 0 2-1.2 2 0 2.4 1.2 4 0" {...base} />
+        <Path data="M12 9V5.5" {...base} />
+        {dot(12, 4.4, 0.9)}
+      </>); break;
+    case 'gift':
+      shapes = (<>
+        <Rect x={4.5} y={11} width={15} height={9} cornerRadius={1} {...base} />
+        <Path data="M3.5 8h17v3h-17z" {...base} />
+        <Path data="M12 8v12" {...base} />
+        <Path data="M12 8C10.5 8 8.5 7.4 8.5 6S11 4.5 12 8Zm0 0c1.5 0 3.5-.6 3.5-2S13 4.5 12 8Z" {...base} />
+      </>); break;
+    case 'guestbook':
+      shapes = (<>
+        <Path data="M12 6.5v13" {...base} />
+        <Path data="M12 6.5c-1.8-1.2-4.4-1.2-6 0v11.5c1.6-1.2 4.2-1.2 6 0" {...base} />
+        <Path data="M12 6.5c1.8-1.2 4.4-1.2 6 0v11.5c-1.6-1.2-4.2-1.2-6 0" {...base} />
+      </>); break;
+    case 'bar':
+      shapes = (<>
+        <Path data="M5 5.5h14l-7 7.5z" {...base} />
+        <Path data="M12 13v6" {...base} />
+        <Path data="M8.5 19h7" {...base} />
+        <Path data="M16 6.5l2.5-1.6" {...base} />
+        {dot(19, 4.4, 0.9)}
+      </>); break;
+    case 'stage':
+      shapes = (<>
+        <Path data="M3 18l4-9.5h10L21 18Z" {...base} />
+        <Path data="M3 18h18" {...base} />
+        <Path data="M12 8.5V5" {...base} />
+        {dot(12, 4, 0.9)}
+      </>); break;
+    case 'dancefloor':
+      shapes = (<>
+        <Rect x={4} y={4} width={16} height={16} cornerRadius={1} {...base} />
+        <Path data="M12 4v16" {...base} />
+        <Path data="M4 12h16" {...base} />
+        <Rect x={4} y={4} width={8} height={8} fill={col} opacity={0.18} listening={false} />
+        <Rect x={12} y={12} width={8} height={8} fill={col} opacity={0.18} listening={false} />
+      </>); break;
+    default:
+      shapes = (<>
+        <Rect x={5} y={5} width={14} height={14} cornerRadius={2} {...base} />
+        <Circle x={12} y={12} radius={2.5} {...base} />
+      </>); break;
+  }
+  return (
+    <Group scaleX={s} scaleY={s} offsetX={12} offsetY={12} listening={false}>
+      {shapes}
     </Group>
   );
 }

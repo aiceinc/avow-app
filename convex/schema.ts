@@ -123,6 +123,9 @@ export default defineSchema({
     // decorative / non-seating item (cake table, dance floor, stage, …) — no
     // seats or placemats, not a guest drop target. (v1.17.0)
     kind: v.optional(v.union(v.literal("seating"), v.literal("object"))),
+    // For objects: which preset (cake/gift/bar/…) so the canvas can draw its icon
+    // in place of a text label. (v1.18.2) See app/lib/objects.ts.
+    objectKind: v.optional(v.string()),
     // Optional per-table dimensions (set when a table is resized).
     // When absent, the canvas falls back to the default constants in geometry.ts.
     radius: v.optional(v.number()), // round tables

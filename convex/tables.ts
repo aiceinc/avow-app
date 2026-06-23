@@ -37,6 +37,7 @@ export const create = mutation({
     width: v.optional(v.number()),
     height: v.optional(v.number()),
     kind: v.optional(v.union(v.literal("seating"), v.literal("object"))),
+    objectKind: v.optional(v.string()),
     layoutId: v.optional(v.id("seatingLayouts")),
   },
   handler: async (ctx, args) => {

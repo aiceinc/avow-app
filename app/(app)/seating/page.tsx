@@ -105,7 +105,6 @@ export default function SeatingPage() {
   const [selectedTableId,  setSelectedTableId]  = useState<string | null>(null);
   const [draggingGuestId,  setDraggingGuestId]  = useState<string | null>(null);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
-  const [objectMenuOpen,   setObjectMenuOpen]   = useState(false);
   const [canvasSize,       setCanvasSize]       = useState({ width: 1000, height: 650 });
 
   // Layout rename inline editor
@@ -170,13 +169,6 @@ export default function SeatingPage() {
     return () => window.removeEventListener('click', handler);
   }, [templateMenuOpen]);
 
-  useEffect(() => {
-    if (!objectMenuOpen) return;
-    const handler = () => setObjectMenuOpen(false);
-    window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
-  }, [objectMenuOpen]);
-
   // ── Layout handlers ────────────────────────────────────────────────────────
   function switchLayout(id: string) {
     setPickedLayoutId(id);
@@ -224,12 +216,11 @@ export default function SeatingPage() {
   }
 
   async function handleAddObject(preset: ObjectPreset) {
-    setObjectMenuOpen(false);
     if (!activeLayoutId) return;
     const { x, y } = findOpenSpot(tables, canvasSize.width, canvasSize.height);
     await createTable({
       workspaceId, layoutId: activeLayoutId as Id<'seatingLayouts'>,
-      kind: 'object', shape: preset.shape, seatCount: 0, x, y, rotation: 0, label: preset.label,
+      kind: 'object', objectKind: preset.key, shape: preset.shape, seatCount: 0, x, y, rotation: 0, label: preset.label,
       ...(preset.radius != null ? { radius: preset.radius } : {}),
       ...(preset.width  != null ? { width:  preset.width }  : {}),
       ...(preset.height != null ? { height: preset.height } : {}),
@@ -340,31 +331,7 @@ export default function SeatingPage() {
         {/* Left sidebar — table tools (matched to the guest panel width) */}
         <div className="w-72 border-r border-rule bg-bg/60 flex flex-col shrink-0">
           <div className="flex-1 overflow-y-auto p-3">
-            <p className="text-xs font-medium text-ink-faint mb-2 px-1">Add tables</p>
-
-            <button onClick={() => handleAddTable('round')} className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2">
-              Add <TableShapeIcon shape="round" />
-            </button>
-            <button onClick={() => handleAddTable('rectangular')} className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2">
-              Add <TableShapeIcon shape="rectangular" />
-            </button>
-
-            {/* Add object — icon grid */}
-            <div className="relative mb-3" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setObjectMenuOpen(o => !o)} className="btn btn-secondary w-full text-sm px-3 py-2">Add object ▾</button>
-              {objectMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 w-full bg-white border border-rule rounded-lg shadow-lg z-50 p-2 grid grid-cols-4 gap-1">
-                  {OBJECT_PRESETS.map((p) => (
-                    <button key={p.key} onClick={() => handleAddObject(p)} title={p.label}
-                      className="aspect-square flex items-center justify-center rounded-md text-ink-soft hover:text-ink hover:bg-bg-tint transition-colors">
-                      <ObjectIcon name={p.key} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Template picker */}
+            {/* Use Template — moved to the top of the sidebar */}
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button onClick={() => setTemplateMenuOpen(o => !o)} className="btn btn-secondary w-full text-sm px-3 py-2">Use Template ▾</button>
               {templateMenuOpen && (
@@ -419,6 +386,21 @@ export default function SeatingPage() {
                 </div>
               </div>
             )}
+
+            {/* Add tables & objects — each click drops one onto the canvas */}
+            <div className="mt-3 pt-3 border-t border-rule space-y-2">
+              <button onClick={() => handleAddTable('round')} className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-between gap-2">
+                <span>+ Round table</span><TableShapeIcon shape="round" />
+              </button>
+              <button onClick={() => handleAddTable('rectangular')} className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-between gap-2">
+                <span>+ Rectangular table</span><TableShapeIcon shape="rectangular" />
+              </button>
+              {OBJECT_PRESETS.map((p) => (
+                <button key={p.key} onClick={() => handleAddObject(p)} className="btn btn-secondary w-full text-sm px-3 py-2 flex items-center justify-between gap-2">
+                  <span>+ {p.label}</span><ObjectIcon name={p.key} size={18} />
+                </button>
+              ))}
+            </div>
 
             {/* Venue size — to-scale boundary you can drag-resize on the canvas */}
             <div className="mt-3 pt-3 border-t border-rule" onClick={e => e.stopPropagation()}>
