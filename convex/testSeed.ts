@@ -136,6 +136,23 @@ export const seedSubscription = internalMutation({
   },
 });
 
+/** Delete subscription rows whose tier is no longer a valid tier — legacy cruft
+ *  left over from a tier rename (e.g. old 'standard'/'pro'/'planner' rows). */
+export const purgeLegacySubscriptions = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const subs = await ctx.db.query("subscriptions").take(1000);
+    let deleted = 0;
+    for (const s of subs) {
+      if (!isTier(s.tier)) {
+        await ctx.db.delete(s._id);
+        deleted++;
+      }
+    }
+    return { deleted };
+  },
+});
+
 /** Hard-delete a test user: their workspaces (purged when they're the last
  *  member), then their full auth footprint. Mirrors account.deleteMyAccount. */
 export const wipeUser = internalMutation({

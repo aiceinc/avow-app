@@ -233,7 +233,9 @@ export default function BudgetPage() {
             <div className="flex items-baseline gap-3">
               <span className="text-sm text-ink-soft">Target</span>
               <span className="font-serif text-2xl text-ink tabular-nums">{formatMoney(target)}</span>
-              <button onClick={openTargetEditor} className="text-xs text-ink-faint hover:text-ink-soft transition-colors">Edit</button>
+              {canEdit && (
+                <button onClick={openTargetEditor} className="text-xs text-ink-faint hover:text-ink-soft transition-colors">Edit</button>
+              )}
             </div>
           ) : (
             <button onClick={openTargetEditor} disabled={!canEdit} className="btn btn-secondary text-sm px-4 py-2 border-accent text-accent hover:bg-bg-tint disabled:opacity-50 disabled:cursor-not-allowed">
@@ -344,22 +346,28 @@ export default function BudgetPage() {
                     </span>
 
                     {/* Hover actions */}
-                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                      <button onClick={() => openAddItem(cat._id)} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Add line item to ${cat.name}`}>+ Item</button>
-                      <button onClick={() => startRename(cat)} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Rename ${cat.name}`}>Rename</button>
-                      {items.length === 0 && (
-                        <button onClick={() => confirmDeleteCategory(cat)} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${cat.name}`}>Delete</button>
-                      )}
-                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <button onClick={() => openAddItem(cat._id)} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Add line item to ${cat.name}`}>+ Item</button>
+                        <button onClick={() => startRename(cat)} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Rename ${cat.name}`}>Rename</button>
+                        {items.length === 0 && (
+                          <button onClick={() => confirmDeleteCategory(cat)} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${cat.name}`}>Delete</button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Line items */}
                   {open && (
                     <div className="border-t border-rule">
                       {items.length === 0 ? (
-                        <button onClick={() => openAddItem(cat._id)} className="block w-full text-left px-4 py-3 text-xs text-ink-faint hover:bg-bg-tint/50 transition-colors">
-                          No items yet — add one
-                        </button>
+                        canEdit ? (
+                          <button onClick={() => openAddItem(cat._id)} className="block w-full text-left px-4 py-3 text-xs text-ink-faint hover:bg-bg-tint/50 transition-colors">
+                            No items yet — add one
+                          </button>
+                        ) : (
+                          <div className="px-4 py-3 text-xs text-ink-faint">No items yet</div>
+                        )
                       ) : (
                         items.map(item => (
                           <LineItemRow
@@ -368,6 +376,7 @@ export default function BudgetPage() {
                             vendorLabel={item.vendorId ? vendorName.get(item.vendorId) ?? 'Unknown vendor' : item.vendor}
                             onEdit={() => openEditItem(item)}
                             onDelete={() => confirmDeleteItem(item)}
+                            canEdit={canEdit}
                           />
                         ))
                       )}
@@ -437,11 +446,13 @@ function LineItemRow({
   vendorLabel,
   onEdit,
   onDelete,
+  canEdit,
 }: {
   item: Doc<'budgetLineItems'>;
   vendorLabel?: string;
   onEdit: () => void;
   onDelete: () => void;
+  canEdit: boolean;
 }) {
   const paid = paidStatusStyle(item.paidStatus);
   return (
@@ -480,10 +491,12 @@ function LineItemRow({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Edit ${item.name}`}>Edit</button>
-        <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${item.name}`}>Delete</button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button onClick={onEdit} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Edit ${item.name}`}>Edit</button>
+          <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${item.name}`}>Delete</button>
+        </div>
+      )}
     </div>
   );
 }

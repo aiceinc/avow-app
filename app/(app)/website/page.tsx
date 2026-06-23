@@ -142,7 +142,9 @@ function PublishCard({
           {site.published && (
             <button onClick={copyUrl} className="text-xs text-ink-faint hover:text-ink transition-colors">{copied ? 'Copied!' : 'Copy'}</button>
           )}
-          <button onClick={() => { setSlugInput(site.slug); setEditingSlug(true); }} className="text-xs text-ink-faint hover:text-ink-soft transition-colors">Edit address</button>
+          {canEdit && (
+            <button onClick={() => { setSlugInput(site.slug); setEditingSlug(true); }} className="text-xs text-ink-faint hover:text-ink-soft transition-colors">Edit address</button>
+          )}
         </div>
       )}
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
