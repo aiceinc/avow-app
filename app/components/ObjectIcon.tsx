@@ -53,29 +53,38 @@ export default function ObjectIcon({ name, size = 20 }: { name: string; size?: n
         </svg>
       );
     case 'stage':
+      // Podium / lectern
       return (
         <svg {...p} aria-hidden>
-          <path d="M3 18l4-9.5h10L21 18Z" />
-          <path d="M3 18h18" />
-          <path d="M12 8.5V5" />
-          <circle cx="12" cy="4" r="0.8" fill="currentColor" stroke="none" />
+          <path d="M7.5 6h9v1.6l-1 1H8.5l-1-1z" />
+          <path d="M9 8.6h6l-1.3 7.4h-3.4z" />
+          <path d="M10 16h4l1 3h-6z" />
+          <path d="M7 19.5h10" />
         </svg>
       );
     case 'dancefloor':
+      // Disco ball
       return (
         <svg {...p} aria-hidden>
-          <rect x="4" y="4" width="16" height="16" rx="1" />
-          <path d="M12 4v16M4 12h16" />
-          <rect x="4" y="4" width="8" height="8" fill="currentColor" stroke="none" opacity="0.18" />
-          <rect x="12" y="12" width="8" height="8" fill="currentColor" stroke="none" opacity="0.18" />
+          <path d="M12 3.5V6" />
+          <circle cx="12" cy="13" r="7" />
+          <path d="M9 6.7V19.3" />
+          <path d="M12 6V20" />
+          <path d="M15 6.7V19.3" />
+          <path d="M5.7 10H18.3" />
+          <path d="M5 13H19" />
+          <path d="M5.7 16H18.3" />
         </svg>
       );
     case 'djband':
+      // DJ turntable
       return (
         <svg {...p} aria-hidden>
-          <path d="M9.4 18V6l10-2v12" />
-          <circle cx="7" cy="18" r="2.6" fill="currentColor" stroke="none" />
-          <circle cx="17" cy="16" r="2.6" fill="currentColor" stroke="none" />
+          <rect x="3" y="5.5" width="18" height="13" rx="2" />
+          <circle cx="10" cy="12" r="4.3" />
+          <circle cx="10" cy="12" r="0.9" fill="currentColor" stroke="none" />
+          <path d="M18.5 7.5l-4.8 3.1" />
+          <circle cx="18.7" cy="7.3" r="0.9" fill="currentColor" stroke="none" />
         </svg>
       );
     default:

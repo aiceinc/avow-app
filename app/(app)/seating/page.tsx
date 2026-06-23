@@ -60,8 +60,42 @@ function findOpenSpot(
   return { x: Math.round(canvasW / 2), y: Math.round(canvasH / 2) };
 }
 
+// Remembers each sidebar width for the session (survives in-app navigation;
+// module-level so there's no localStorage read in render → no hydration mismatch
+// and no setState-in-effect).
+const SIDEBAR_WIDTHS: Record<string, number> = {};
+
+/**
+ * Drag-to-resize width for a sidebar. `edge` is which edge carries the handle:
+ * 'right' (left sidebar — drag right to widen) or 'left' (right sidebar — drag
+ * left to widen).
+ */
+function useDragWidth(key: string, initial: number, min: number, max: number, edge: 'left' | 'right') {
+  const [w, setWState] = useState(() => SIDEBAR_WIDTHS[key] ?? initial);
+  const setW = (n: number) => { SIDEBAR_WIDTHS[key] = n; setWState(n); };
+  const onDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = w;
+    const move = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const nw = edge === 'right' ? startW + dx : startW - dx;
+      setW(Math.max(min, Math.min(max, nw)));
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  return { w, onDown };
+}
+
 export default function SeatingPage() {
   const { workspaceId } = useWorkspace();
+  const leftBar  = useDragWidth('avow:seatingLeftW',  288, 220, 460, 'right');
+  const rightBar = useDragWidth('avow:seatingRightW', 288, 220, 460, 'left');
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const allTables   = useQuery(api.tables.list,          { workspaceId }) ?? [];
@@ -162,9 +196,11 @@ export default function SeatingPage() {
     }
   }, [selectedTableId, selectedTable]);
 
+  // Clicking outside the template dropdown closes it — and slides the
+  // Preview / Use overlay away with it.
   useEffect(() => {
     if (!templateMenuOpen) return;
-    const handler = () => setTemplateMenuOpen(false);
+    const handler = () => { setTemplateMenuOpen(false); setTplKey(null); setPreviewOn(false); };
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
   }, [templateMenuOpen]);
@@ -230,21 +266,21 @@ export default function SeatingPage() {
   function handleResetAll() {
     if (tables.length === 0 || !activeLayoutId) return;
     showConfirm(
-      `Start over? This removes every table in the "${activeLayout?.name ?? ''}" layout.`,
+      `Reset the "${activeLayout?.name ?? ''}" layout? This removes every table in it.`,
       async () => {
         closeModal();
         setSelectedTableId(null);
         await clearAll({ workspaceId, layoutId: activeLayoutId as Id<'seatingLayouts'> });
       },
-      'Start over',
+      'Reset layout',
       true
     );
   }
 
-  // Clicking a template opens the Preview / Use panel; it isn't applied yet.
+  // Clicking a template reveals the Preview / Use overlay over its row; the
+  // dropdown stays open so the choice sits in context.
   function selectTemplate(key: TemplateKey) {
     if (!canApply) return;
-    setTemplateMenuOpen(false);
     setTplKey(key);
     setPreviewOn(false);
   }
@@ -258,6 +294,7 @@ export default function SeatingPage() {
       setSelectedTableId(null);
       setPreviewOn(false);
       setTplKey(null);
+      setTemplateMenuOpen(false);
       await clearAll({ workspaceId, layoutId: activeLayoutId as Id<'seatingLayouts'> });
       await createBatch({
         workspaceId,
@@ -328,8 +365,8 @@ export default function SeatingPage() {
     <>
       <div className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* Left sidebar — table tools (matched to the guest panel width) */}
-        <div className="w-72 border-r border-rule bg-bg/60 flex flex-col shrink-0">
+        {/* Left sidebar — table tools (drag the inner edge to resize) */}
+        <div className="relative border-r border-rule bg-bg/60 flex flex-col shrink-0" style={{ width: leftBar.w }}>
           <div className="flex-1 overflow-y-auto p-3">
             {/* Use Template — moved to the top of the sidebar */}
             <div className="relative" onClick={e => e.stopPropagation()}>
@@ -344,7 +381,7 @@ export default function SeatingPage() {
                         Custom
                       </label>
                     </div>
-                    <input type="number" min={1} value={customSeats ? customSeatCount : guests.length} disabled={!customSeats}
+                    <input type="number" min={1} value={customSeats ? (customSeatCount || '') : guests.length} disabled={!customSeats}
                       onChange={(e) => setCustomSeatCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
                       className="app-input w-full text-sm px-2 py-1.5 disabled:opacity-60" />
                     <p className="text-[0.65rem] text-ink-faint mt-1">
@@ -356,36 +393,37 @@ export default function SeatingPage() {
                   )}
                   {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(([key, tmpl]) => {
                     const { tableCount, totalSeats } = tmpl.plan(Math.max(1, targetSeats));
+                    const selected = tplKey === key;
                     return (
-                      <button key={key} onClick={() => selectTemplate(key)} disabled={!canApply}
-                        className="block w-full text-left px-4 py-3 hover:bg-bg-tint border-b last:border-0 border-rule transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-ink">{tmpl.label}</span>
-                          {canApply && key === suggestedKey && (
-                            <span className="text-[0.55rem] uppercase tracking-wide font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded">Suggested</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
-                        {canApply && <div className="text-[0.7rem] text-accent mt-1">{tableCount} table{tableCount === 1 ? '' : 's'} · {totalSeats} seats</div>}
-                      </button>
+                      <div key={key} className="relative border-b last:border-0 border-rule">
+                        <button onClick={() => selectTemplate(key)} disabled={!canApply}
+                          className="block w-full text-left px-4 py-3 hover:bg-bg-tint transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-ink">{tmpl.label}</span>
+                            {canApply && key === suggestedKey && (
+                              <span className="text-[0.55rem] uppercase tracking-wide font-medium bg-accent/15 text-accent px-1.5 py-0.5 rounded">Suggested</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-ink-faint mt-0.5">{tmpl.description}</div>
+                          {canApply && <div className="text-[0.7rem] text-accent mt-1">{tableCount} table{tableCount === 1 ? '' : 's'} · {totalSeats} seats</div>}
+                        </button>
+
+                        {/* Preview / Use overlay — sits over the chosen row */}
+                        {selected && (
+                          <div className="absolute inset-0 flex items-center gap-1.5 px-3 bg-white/95 backdrop-blur-sm animate-fade-in">
+                            <button onClick={() => setPreviewOn(o => !o)} className={`btn text-xs px-2 py-1.5 flex-1 ${previewOn ? 'btn-primary' : 'btn-secondary'}`}>
+                              {previewOn ? 'Exit preview' : 'Preview'}
+                            </button>
+                            <button onClick={useSelectedTemplate} className="btn btn-primary text-xs px-2 py-1.5 flex-1">Use this</button>
+                            <button onClick={() => { setTplKey(null); setPreviewOn(false); }} title="Close" className="text-ink-faint hover:text-ink text-sm px-1 shrink-0">✕</button>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               )}
             </div>
-
-            {/* Selected template — Preview / Use panel */}
-            {tplKey && (
-              <div className="mt-2 border border-rule rounded-lg p-2.5 bg-bg-tint/30">
-                <p className="text-xs text-ink mb-2">{TEMPLATES[tplKey].label}{previewOn && <span className="text-accent"> · previewing</span>}</p>
-                <div className="flex gap-1.5">
-                  <button onClick={() => setPreviewOn(o => !o)} className={`btn text-xs px-2 py-1.5 flex-1 ${previewOn ? 'btn-primary' : 'btn-secondary'}`}>
-                    {previewOn ? 'Exit preview' : 'Preview'}
-                  </button>
-                  <button onClick={useSelectedTemplate} className="btn btn-primary text-xs px-2 py-1.5 flex-1">Use this template</button>
-                </div>
-              </div>
-            )}
 
             {/* Tables — guest tables + table-style objects (compact 2-col grid) */}
             <div className="mt-3 pt-3 border-t border-rule">
@@ -433,16 +471,18 @@ export default function SeatingPage() {
                 <VenueField label="Length" value={lVal} unit={lUnit} onChange={setVenueLInput} onToggleUnit={() => toggleUnit('l')} />
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={applyVenue} className="btn btn-secondary text-xs px-2 py-1.5 flex-1">Set venue</button>
+                <button onClick={applyVenue} className="btn btn-secondary text-xs px-2 py-1.5 flex-1">Set size</button>
                 {venueW != null && <button onClick={clearVenue} className="text-xs text-ink-faint hover:text-red-600 transition-colors">Clear</button>}
               </div>
             </div>
           </div>
 
-          {/* Start over — pinned to the bottom */}
-          <div className="p-3 border-t border-rule shrink-0">
-            <button onClick={handleResetAll} className="btn btn-danger w-full text-sm px-3 py-2">Start over</button>
-          </div>
+          {/* Resize handle on the inner (right) edge */}
+          <div
+            onMouseDown={leftBar.onDown}
+            title="Drag to resize"
+            className="absolute right-0 top-0 bottom-0 w-1.5 -mr-0.5 cursor-col-resize hover:bg-accent/30 transition-colors z-20"
+          />
         </div>
 
         {/* Canvas column — layout tabs above the canvas */}
@@ -464,9 +504,14 @@ export default function SeatingPage() {
               )
             ))}
             <button onClick={handleAddLayout} className="px-2 py-1 text-sm text-accent hover:bg-bg-tint rounded-md whitespace-nowrap" title="Add a seating layout">+ Layout</button>
-            {layouts.length > 1 && activeLayout && (
-              <button onClick={() => handleRemoveLayout(activeLayout)} className="ml-auto text-xs text-ink-faint hover:text-red-600 px-2 whitespace-nowrap" title="Delete this layout">Delete layout</button>
-            )}
+            <div className="ml-auto flex items-center gap-1 shrink-0">
+              {tables.length > 0 && (
+                <button onClick={handleResetAll} className="text-xs text-ink-faint hover:text-red-600 px-2 whitespace-nowrap" title="Remove every table in this layout">Reset layout</button>
+              )}
+              {layouts.length > 1 && activeLayout && (
+                <button onClick={() => handleRemoveLayout(activeLayout)} className="text-xs text-ink-faint hover:text-red-600 px-2 whitespace-nowrap" title="Delete this layout">Delete layout</button>
+              )}
+            </div>
           </div>
 
           <SeatingCanvas
@@ -500,6 +545,8 @@ export default function SeatingPage() {
           draggingGuestId={draggingGuestId}
           onDragStart={setDraggingGuestId}
           onDragEnd={() => setDraggingGuestId(null)}
+          width={rightBar.w}
+          onResizeStart={rightBar.onDown}
         />
       </div>
 

@@ -142,7 +142,7 @@ function Placemat({ x, y, rotation }: { x: number; y: number; rotation: number }
 
 function TableNode({
   table, tableAssignments, guestMap,
-  isSelected, isRotating, isResizing, rotationOverride, dims,
+  isSelected, isRotating, isResizing, rotationOverride, dims, centerX, centerY,
   onSelect, onMoveEnd, onDragMove, onSeatClick,
 }: {
   table:             Doc<'tables'>;
@@ -153,6 +153,8 @@ function TableNode({
   isResizing:        boolean;
   rotationOverride?: number;
   dims:              TableDims;
+  centerX?:          number;
+  centerY?:          number;
   onSelect:          () => void;
   onMoveEnd:         (x: number, y: number) => void;
   onDragMove?:       (x: number, y: number) => void;
@@ -186,15 +188,16 @@ function TableNode({
     ? `⌀ ${pxToFeetLabel(2 * r)} ft`
     : `${pxToFeetLabel(w)} × ${pxToFeetLabel(h)} ft`;
 
-  // Edge-midpoint handle positions, in the table's local (pre-rotation) frame.
+  // Resize handle positions, in the table's local (pre-rotation) frame. Round =
+  // edge midpoints; rectangular = corners (the opposite corner stays fixed).
   const handlePoints = table.shape === 'round'
     ? [{ x: r, y: 0 }, { x: -r, y: 0 }, { x: 0, y: -r }, { x: 0, y: r }]
-    : [{ x: w / 2, y: 0 }, { x: -w / 2, y: 0 }, { x: 0, y: -h / 2 }, { x: 0, y: h / 2 }];
+    : [{ x: w / 2, y: h / 2 }, { x: -w / 2, y: h / 2 }, { x: w / 2, y: -h / 2 }, { x: -w / 2, y: -h / 2 }];
 
   return (
     <Group
-      x={table.x}
-      y={table.y}
+      x={centerX ?? table.x}
+      y={centerY ?? table.y}
       rotation={rotation}
       draggable={!isRotating && !isResizing}
       onClick={e => { e.cancelBubble = true; onSelect(); }}
@@ -362,26 +365,31 @@ function KonvaObjectIcon({ kind, size }: { kind: string; size: number }) {
         <Path data="M16 6.5l2.5-1.6" {...base} />
         {dot(19, 4.4, 0.9)}
       </>); break;
-    case 'stage':
+    case 'stage': // Podium / lectern
       shapes = (<>
-        <Path data="M3 18l4-9.5h10L21 18Z" {...base} />
-        <Path data="M3 18h18" {...base} />
-        <Path data="M12 8.5V5" {...base} />
-        {dot(12, 4, 0.9)}
+        <Path data="M7.5 6h9v1.6l-1 1H8.5l-1-1z" {...base} />
+        <Path data="M9 8.6h6l-1.3 7.4h-3.4z" {...base} />
+        <Path data="M10 16h4l1 3h-6z" {...base} />
+        <Path data="M7 19.5h10" {...base} />
       </>); break;
-    case 'dancefloor':
+    case 'dancefloor': // Disco ball
       shapes = (<>
-        <Rect x={4} y={4} width={16} height={16} cornerRadius={1} {...base} />
-        <Path data="M12 4v16" {...base} />
-        <Path data="M4 12h16" {...base} />
-        <Rect x={4} y={4} width={8} height={8} fill={col} opacity={0.18} listening={false} />
-        <Rect x={12} y={12} width={8} height={8} fill={col} opacity={0.18} listening={false} />
+        <Path data="M12 3.5V6" {...base} />
+        <Circle x={12} y={13} radius={7} {...base} />
+        <Path data="M9 6.7V19.3" {...base} />
+        <Path data="M12 6V20" {...base} />
+        <Path data="M15 6.7V19.3" {...base} />
+        <Path data="M5.7 10H18.3" {...base} />
+        <Path data="M5 13H19" {...base} />
+        <Path data="M5.7 16H18.3" {...base} />
       </>); break;
-    case 'djband':
+    case 'djband': // DJ turntable
       shapes = (<>
-        <Path data="M9.4 18V6l10-2v12" {...base} />
-        {dot(7, 18, 2.6)}
-        {dot(17, 16, 2.6)}
+        <Rect x={3} y={5.5} width={18} height={13} cornerRadius={2} {...base} />
+        <Circle x={10} y={12} radius={4.3} {...base} />
+        {dot(10, 12, 0.9)}
+        <Path data="M18.5 7.5l-4.8 3.1" {...base} />
+        {dot(18.7, 7.3, 0.9)}
       </>); break;
     default:
       shapes = (<>
@@ -687,8 +695,11 @@ export default function SeatingCanvas({
   const [liveDragPos,  setLiveDragPos]  = useState<{ x: number; y: number } | null>(null);
 
   // ── Resize-mode state ─────────────────────────────────────────────────────
-  const [resizeMode, setResizeMode] = useState(false);
-  const [liveSize,   setLiveSize]   = useState<TableDims | null>(null);
+  const [resizeMode,        setResizeMode]        = useState(false);
+  const [liveSize,          setLiveSize]          = useState<TableDims | null>(null);
+  // Corner resize moves the table's centre (opposite corner stays fixed), so the
+  // selected table's position is overridden while a corner drag is in progress.
+  const [liveResizeCenter,  setLiveResizeCenter]  = useState<{ x: number; y: number } | null>(null);
 
   // ── Copy → place a translucent "ghost" duplicate that follows the cursor ───
   const [clipboard, setClipboard] = useState<ClipboardTable | null>(null);
@@ -697,13 +708,19 @@ export default function SeatingCanvas({
 
   // Stable refs so window listeners don't go stale
   const rotateRef        = useRef<{ startAngle: number; baseRotation: number } | null>(null);
-  const resizeRef        = useRef<{ round: true } | { edge: 'left' | 'right' | 'top' | 'bottom' } | null>(null);
+  const resizeRef        = useRef<
+    | { round: true }
+    | { corner: 'tl' | 'tr' | 'bl' | 'br'; ox: number; oy: number }
+    | null
+  >(null);
   const selectedTableRef = useRef(selectedTable);
   const liveRotationRef  = useRef(liveRotation);
   const liveSizeRef      = useRef(liveSize);
+  const liveCenterRef    = useRef(liveResizeCenter);
   useEffect(() => { selectedTableRef.current = selectedTable; },  [selectedTable]);
   useEffect(() => { liveRotationRef.current  = liveRotation; },   [liveRotation]);
   useEffect(() => { liveSizeRef.current      = liveSize; },       [liveSize]);
+  useEffect(() => { liveCenterRef.current    = liveResizeCenter; }, [liveResizeCenter]);
 
   // Reset rotate + resize state whenever the selected table changes
   useEffect(() => {
@@ -711,6 +728,7 @@ export default function SeatingCanvas({
     setResizeMode(false);
     setLiveRotation(null);
     setLiveSize(null);
+    setLiveResizeCenter(null);
     setLiveDragPos(null);
     rotateRef.current = null;
     resizeRef.current = null;
@@ -732,6 +750,7 @@ export default function SeatingCanvas({
   const toggleResize = useCallback(() => {
     setRotateMode(false);
     setLiveRotation(null);
+    setLiveResizeCenter(null);
     rotateRef.current = null;
     setResizeMode(r => !r);
   }, []);
@@ -828,32 +847,48 @@ export default function SeatingCanvas({
     function onMove(e: MouseEvent) {
       const table = selectedTableRef.current;
       if (!resizeRef.current || !table) return;
-      const wpt   = toWorld(e.clientX, e.clientY);
-      const local = toLocalFrame(wpt.x - table.x, wpt.y - table.y, table.rotation);
+      const wpt = toWorld(e.clientX, e.clientY);
 
-      let next: TableDims;
       if ('round' in resizeRef.current) {
-        next = { radius: clamp(Math.hypot(local.x, local.y), MIN_RADIUS, MAX_RADIUS) };
-      } else {
-        const prev = liveSizeRef.current ?? {};
-        const edge = resizeRef.current.edge;
-        if (edge === 'left' || edge === 'right') {
-          next = { width: clamp(Math.abs(local.x) * 2, MIN_RECT_W, MAX_RECT_W), height: prev.height ?? getHeight(table) };
-        } else {
-          next = { width: prev.width ?? getWidth(table), height: clamp(Math.abs(local.y) * 2, MIN_RECT_H, MAX_RECT_H) };
-        }
+        const local = toLocalFrame(wpt.x - table.x, wpt.y - table.y, table.rotation);
+        const next: TableDims = { radius: clamp(Math.hypot(local.x, local.y), MIN_RADIUS, MAX_RADIUS) };
+        liveSizeRef.current = next;
+        setLiveSize(next);
+        return;
       }
-      // Keep the ref in sync synchronously so the mouseup commit always sees the
-      // latest size, even if React hasn't flushed the state-sync effect yet.
-      liveSizeRef.current = next;
+
+      // Rectangular corner drag: the opposite corner (ox, oy) stays pinned in
+      // world space; width/height grow along the table's rotated axes and the
+      // centre moves to the midpoint of the fixed corner and the dragged corner.
+      const { ox, oy } = resizeRef.current;
+      const rad = (table.rotation * Math.PI) / 180;
+      const ux  = { x: Math.cos(rad),  y: Math.sin(rad) };  // local +x in world
+      const uy  = { x: -Math.sin(rad), y: Math.cos(rad) };  // local +y in world
+      const dx  = wpt.x - ox;
+      const dy  = wpt.y - oy;
+      const dw  = dx * ux.x + dy * ux.y;
+      const dh  = dx * uy.x + dy * uy.y;
+      const newW = clamp(Math.abs(dw), MIN_RECT_W, MAX_RECT_W);
+      const newH = clamp(Math.abs(dh), MIN_RECT_H, MAX_RECT_H);
+      const sw = dw >= 0 ? 1 : -1;
+      const sh = dh >= 0 ? 1 : -1;
+      const cx = ox + ux.x * sw * (newW / 2) + uy.x * sh * (newH / 2);
+      const cy = oy + ux.y * sw * (newW / 2) + uy.y * sh * (newH / 2);
+
+      const next: TableDims = { width: newW, height: newH };
+      liveSizeRef.current   = next;
+      liveCenterRef.current = { x: cx, y: cy };
       setLiveSize(next);
+      setLiveResizeCenter({ x: cx, y: cy });
     }
 
     function onUp() {
       if (!resizeRef.current) return;
+      const wasCorner = !('round' in resizeRef.current);
       resizeRef.current = null;
-      const table = selectedTableRef.current;
-      const size  = liveSizeRef.current;
+      const table  = selectedTableRef.current;
+      const size   = liveSizeRef.current;
+      const center = liveCenterRef.current;
       if (table && size) {
         if (table.shape === 'round' && size.radius != null) {
           updateTable({ tableId: table._id, radius: Math.round(size.radius) });
@@ -862,6 +897,7 @@ export default function SeatingCanvas({
             tableId: table._id,
             width:  Math.round(size.width  ?? getWidth(table)),
             height: Math.round(size.height ?? getHeight(table)),
+            ...(wasCorner && center ? { x: Math.round(center.x), y: Math.round(center.y) } : {}),
           });
         }
       }
@@ -906,20 +942,25 @@ export default function SeatingCanvas({
         } else {
           const w = getWidth(selectedTable);
           const h = getHeight(selectedTable);
-          const handles = [
-            { edge: 'right'  as const, x:  w / 2, y: 0 },
-            { edge: 'left'   as const, x: -w / 2, y: 0 },
-            { edge: 'top'    as const, x: 0, y: -h / 2 },
-            { edge: 'bottom' as const, x: 0, y:  h / 2 },
+          const corners = [
+            { corner: 'br' as const, x:  w / 2, y:  h / 2 },
+            { corner: 'bl' as const, x: -w / 2, y:  h / 2 },
+            { corner: 'tr' as const, x:  w / 2, y: -h / 2 },
+            { corner: 'tl' as const, x: -w / 2, y: -h / 2 },
           ];
-          let chosen: 'left' | 'right' | 'top' | 'bottom' | null = null;
-          let bestD = 20; // hit tolerance (px)
-          for (const hpt of handles) {
-            const d = Math.hypot(local.x - hpt.x, local.y - hpt.y);
-            if (d < bestD) { bestD = d; chosen = hpt.edge; }
+          let chosen: (typeof corners)[number] | null = null;
+          let bestD = 24; // hit tolerance (px)
+          for (const c of corners) {
+            const d = Math.hypot(local.x - c.x, local.y - c.y);
+            if (d < bestD) { bestD = d; chosen = c; }
           }
           if (chosen) {
-            resizeRef.current = { edge: chosen };
+            // Pin the opposite corner in world space so it stays fixed.
+            const ol  = { x: -chosen.x, y: -chosen.y };
+            const rad = (selectedTable.rotation * Math.PI) / 180;
+            const ox  = selectedTable.x + ol.x * Math.cos(rad) - ol.y * Math.sin(rad);
+            const oy  = selectedTable.y + ol.x * Math.sin(rad) + ol.y * Math.cos(rad);
+            resizeRef.current = { corner: chosen.corner, ox, oy };
             e.preventDefault();
           }
         }
@@ -1050,8 +1091,8 @@ export default function SeatingCanvas({
       onClick={handleCanvasClick}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* Empty-state hint */}
-      {tables.length === 0 && (
+      {/* Empty-state hint — hidden while a template preview is on screen */}
+      {tables.length === 0 && !(previewTables && previewTables.length > 0) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-sm text-ink-faint">Add a table or choose a template to get started</p>
         </div>
@@ -1075,8 +1116,10 @@ export default function SeatingCanvas({
         y={offsetY}
         onClick={() => { if (!placing) onSelectTable(null); }}
       >
-        {/* Venue boundary — drawn to scale, with draggable edge handles */}
-        {venue && (
+        {/* Venue boundary — drawn to scale, with draggable edge handles.
+            Guarded on a finite, positive scale so the handles never render with
+            an Infinity radius during the brief 0-size window at mount. */}
+        {venue && scale > 0 && Number.isFinite(scale) && (
           <Layer>
             <Rect
               listening={false}
@@ -1127,6 +1170,8 @@ export default function SeatingCanvas({
               isRotating={rotateMode && selectedTableId === table._id}
               isResizing={resizeMode && selectedTableId === table._id}
               dims={dimsFor(table)}
+              centerX={selectedTableId === table._id && liveResizeCenter ? liveResizeCenter.x : undefined}
+              centerY={selectedTableId === table._id && liveResizeCenter ? liveResizeCenter.y : undefined}
               rotationOverride={
                 selectedTableId === table._id && liveRotation !== null
                   ? liveRotation
@@ -1212,8 +1257,8 @@ export default function SeatingCanvas({
       {selectedTable && (
         <FloatingEditPanel
           table={selectedTable}
-          liveDragX={liveDragPos?.x}
-          liveDragY={liveDragPos?.y}
+          liveDragX={liveDragPos?.x ?? liveResizeCenter?.x}
+          liveDragY={liveDragPos?.y ?? liveResizeCenter?.y}
           canvasW={size.width}
           canvasH={size.height}
           scale={scale}

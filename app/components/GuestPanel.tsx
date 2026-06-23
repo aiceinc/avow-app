@@ -23,6 +23,8 @@ type Props = {
   draggingGuestId: string | null;
   onDragStart:     (guestId: string) => void;
   onDragEnd:       () => void;
+  width?:          number;
+  onResizeStart?:  (e: React.MouseEvent) => void;
 };
 
 function GuestCard({
@@ -93,6 +95,8 @@ export default function GuestPanel({
   draggingGuestId,
   onDragStart,
   onDragEnd,
+  width,
+  onResizeStart,
 }: Props) {
   const { partnerNames } = useWorkspace();
   const assignedIds = new Set<string>(assignments.map(a => a.guestId));
@@ -101,7 +105,19 @@ export default function GuestPanel({
   const seated     = guests.filter(g =>  assignedIds.has(g._id));
 
   return (
-    <div className="w-72 border-l border-rule bg-white/60 flex flex-col h-full overflow-hidden shrink-0">
+    <div
+      className={`relative border-l border-rule bg-white/60 flex flex-col h-full overflow-hidden shrink-0 ${width ? '' : 'w-72'}`}
+      style={width ? { width } : undefined}
+    >
+      {/* Drag the inner edge to resize the panel */}
+      {onResizeStart && (
+        <div
+          onMouseDown={onResizeStart}
+          title="Drag to resize"
+          className="absolute left-0 top-0 bottom-0 w-1.5 -ml-0.5 cursor-col-resize hover:bg-accent/30 transition-colors z-20"
+        />
+      )}
+
       {/* Header */}
       <div className="px-4 py-3 border-b border-rule shrink-0">
         <h2 className="text-sm font-semibold text-ink">Guests</h2>
