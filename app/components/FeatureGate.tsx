@@ -43,7 +43,7 @@ export default function FeatureGate({
         <h2 className="font-serif text-2xl text-ink mb-2">{label}</h2>
         {locked ? (
           <p className="text-sm text-ink-soft leading-relaxed mb-6">
-            Your free trial has ended. Subscribe to unlock {label.toLowerCase()} and keep planning.
+            Subscribe to unlock {label.toLowerCase()} and start planning your wedding.
           </p>
         ) : (
           <p className="text-sm text-ink-soft leading-relaxed mb-6">

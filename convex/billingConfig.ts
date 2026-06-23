@@ -48,10 +48,6 @@ export function priceEnvVar(tier: Tier, interval: Interval): string {
  *  so re-introducing a gated tier later stays a config edit.) */
 export type Feature = 'seating' | 'timeline' | 'vendors';
 
-/** The effective tier the no-card free trial grants — the full single-wedding
- *  Couple experience. Product decision 2026-06-22. */
-export const TRIAL_TIER: Tier = 'couple';
-
 /** Features unlocked by each tier. */
 export const TIER_FEATURES: Record<Tier, Feature[]> = {
   couple: ['seating', 'timeline', 'vendors'],
@@ -106,19 +102,11 @@ export function weddingLimitFor(tier: Tier): number {
   return WEDDING_LIMIT[tier];
 }
 
-// ── Term parameters (fill-in-later set) ──────────────────────────────────────
-
-/** Free-trial length in days. The trial is APP-MANAGED (per workspace, from its
- *  creation time) and requires NO card — see TRIAL_REQUIRES_CARD. It simply ends
- *  after this many days unless the couple adds a card and chooses a plan. */
-export const TRIAL_PERIOD_DAYS = 14;
-
-/** The free trial does NOT require a card. Stripe is only involved once the user
- *  actively subscribes (adds a card + picks a plan); we never start a card-gated
- *  Stripe trial. If they subscribe while still inside the free trial, the
- *  remaining trial days are honoured (Checkout `trial_end`) so they aren't
- *  charged early. (v1.11.1) */
-export const TRIAL_REQUIRES_CARD = false;
+// ── Term parameters ──────────────────────────────────────────────────────────
+//
+// NO FREE TRIAL (product decision 2026-06-22): a paid subscription is required
+// from the start to add or edit anything — there is no trial period. A new user
+// can sign up and create a workspace, but it stays read-only until they subscribe.
 
 /**
  * Cancellation behavior. 'period_end' (prep-pack default) keeps the subscription
@@ -139,6 +127,6 @@ export const REFUND_POLICY_TEXT =
  */
 export const AUTO_RENEW_DISCLOSURE =
   `[PENDING LEGAL — placeholder, not final wording] By subscribing, your payment method is charged immediately for the ` +
-  `plan you selected and your paid subscription begins right away, ending any free trial. It renews automatically each ` +
-  `billing period at the then-current price until you cancel. You can cancel any time from your account; cancellation ` +
-  `takes effect at the end of the current billing period.`;
+  `plan you selected and your subscription begins right away. It renews automatically each billing period at the ` +
+  `then-current price until you cancel. You can cancel any time from your account; cancellation takes effect at the ` +
+  `end of the current billing period.`;

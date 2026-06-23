@@ -185,7 +185,7 @@ export default function AppToolbar() {
           <div className="bg-bg rounded-xl p-5 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-serif text-lg text-ink mb-1">New wedding</h2>
             <p className="text-xs text-ink-faint mb-3">
-              Start planning another wedding. It begins its own 14-day free trial unless it&rsquo;s covered by your plan.
+              Start planning another wedding. Planner plans cover multiple weddings under one subscription.
             </p>
             <input
               autoFocus

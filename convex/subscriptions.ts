@@ -1,7 +1,6 @@
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
-import { assertMember, trialEndsAtFor, workspacePlannerCoverage } from "./lib";
-import { TRIAL_PERIOD_DAYS } from "./billingConfig";
+import { assertMember, workspacePlannerCoverage } from "./lib";
 
 /**
  * Subscriptions (Stripe billing, v1.11.0) — the Convex side of the webhook
@@ -31,16 +30,14 @@ export const getMy = query({
 });
 
 /**
- * The workspace's entitlement facts for the client UI (banners, paywall, trial
- * countdown). Raw facts only — the client derives in/out-of-trial against its own
- * clock so this stays a reactive query with no Date.now(). The authoritative
+ * The workspace's entitlement facts for the client UI (paywall banner, plan
+ * status). There is no trial — access requires a subscription. The authoritative
  * write-time gate is assertCanEdit (convex/lib.ts).
  */
 export const getEntitlement = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
     await assertMember(ctx, args.workspaceId);
-    const ws = await ctx.db.get(args.workspaceId);
     const subs = await ctx.db
       .query("subscriptions")
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
@@ -54,8 +51,6 @@ export const getEntitlement = query({
     const plannerTier = await workspacePlannerCoverage(ctx, args.workspaceId);
     const plannerCovered = !!plannerTier;
     return {
-      trialEndsAt: ws ? trialEndsAtFor(ws) : 0, // unix ms
-      trialPeriodDays: TRIAL_PERIOD_DAYS,
       hasSubscription: plannerCovered || !!live,
       subStatus: plannerCovered ? "active" : live?.status ?? null,
       tier: plannerTier ?? live?.tier ?? null,
@@ -69,8 +64,7 @@ export const getEntitlement = query({
 });
 
 /** Auth-gated billing context for the Stripe actions: verifies the caller is a
- *  member of the workspace and returns the customer id + identity bits + the
- *  workspace creation time (so checkout can honour any remaining free-trial days). */
+ *  member of the workspace and returns the customer id + identity bits. */
 export const getCheckoutContext = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
@@ -82,7 +76,6 @@ export const getCheckoutContext = internalQuery({
       stripeCustomerId: ws?.stripeCustomerId ?? null,
       email: user?.email ?? null,
       workspaceName: ws?.name ?? null,
-      trialEndsAt: ws ? trialEndsAtFor(ws) : 0, // unix ms
     };
   },
 });

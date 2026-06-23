@@ -27,17 +27,14 @@ import { derivePartnerNames } from '@/app/lib/guests';
 import AppToolbar from '@/app/components/AppToolbar';
 import ModuleTabs from '@/app/components/ModuleTabs';
 import BillingBanner from '@/app/components/BillingBanner';
-import { isTier, TRIAL_TIER } from '@/convex/billingConfig';
+import { isTier } from '@/convex/billingConfig';
 
 const STORAGE_KEY = 'avow:workspaceId';
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const LOADING_ENTITLEMENT: Entitlement = {
   status: 'loading',
   tier: null,
   canEdit: true, // don't flash the paywall before billing data loads
-  trialDaysLeft: 0,
-  trialEndsAt: null,
   paymentFailed: false,
   hasSubscription: false,
 };
@@ -156,7 +153,6 @@ function AppShell({
 function deriveEntitlement(
   e:
     | {
-        trialEndsAt: number;
         hasSubscription: boolean;
         subStatus: string | null;
         paymentFailed: boolean;
@@ -165,32 +161,22 @@ function deriveEntitlement(
     | undefined
 ): Entitlement {
   if (e === undefined) return LOADING_ENTITLEMENT;
-  const now = Date.now();
-  const inTrial = now < e.trialEndsAt;
-  const trialDaysLeft = Math.max(0, Math.ceil((e.trialEndsAt - now) / DAY_MS));
-  const canEdit = e.hasSubscription || inTrial;
+  // No trial: edit access requires a live subscription.
+  const canEdit = e.hasSubscription;
   const status: Entitlement['status'] = e.hasSubscription
     ? e.paymentFailed
       ? 'past_due'
       : 'active'
-    : inTrial
-    ? 'trial'
     : 'locked';
-  // Effective tier: the subscription's tier, Standard during the free trial,
-  // else null (locked).
   const tier = e.hasSubscription
     ? isTier(e.tier ?? '')
       ? (e.tier as Entitlement['tier'])
       : 'couple'
-    : inTrial
-    ? TRIAL_TIER
     : null;
   return {
     status,
     tier,
     canEdit,
-    trialDaysLeft,
-    trialEndsAt: e.trialEndsAt,
     paymentFailed: e.paymentFailed,
     hasSubscription: e.hasSubscription,
   };

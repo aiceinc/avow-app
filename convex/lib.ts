@@ -3,8 +3,6 @@ import { ConvexError } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import {
-  TRIAL_PERIOD_DAYS,
-  TRIAL_TIER,
   type Tier,
   type Feature,
   isTier,
@@ -19,8 +17,6 @@ import {
 function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Subscription statuses that grant edit access (active, in good standing, or in
  *  the dunning grace window after a failed payment). */
@@ -62,30 +58,22 @@ export async function requireAuth(
   return userId;
 }
 
-/** The unix-ms instant a workspace's free trial ends (creation + TRIAL_PERIOD_DAYS).
- *  The trial is app-managed and needs no card — see convex/billingConfig.ts. */
-export function trialEndsAtFor(workspace: { _creationTime: number }): number {
-  return workspace._creationTime + TRIAL_PERIOD_DAYS * DAY_MS;
-}
-
 /**
- * The HARD PAYWALL gate (v1.11.1). Assert the caller is a member AND the
- * workspace is allowed to make edits — i.e. it's still inside the free trial OR
- * has a live subscription (active / trialing / past-due grace). Otherwise the
- * trial has lapsed with no subscription and the workspace is READ-ONLY: this
- * throws, blocking every create/update/delete at the source. Reads are never
- * gated (members can always VIEW what they created).
+ * The HARD PAYWALL gate. Assert the caller is a member AND the workspace has edit
+ * access — i.e. a live subscription (its own active/trialing/past-due grace, or a
+ * member's Planner plan). There is NO trial: without a subscription the workspace
+ * is READ-ONLY and this throws, blocking every create/update/delete at the source.
+ * Reads are never gated (members can always VIEW what they created).
  *
  * Use in place of assertMember in mutations that create or modify content.
- * (Mutation-only: relies on Date.now(), which Convex permits in mutations.)
  */
-const TRIAL_ENDED_MESSAGE =
-  "Your free trial has ended. Subscribe to keep editing your wedding plans.";
+const NO_SUBSCRIPTION_MESSAGE =
+  "A subscription is required to add or edit. Choose a plan to start planning your wedding.";
 
 /**
- * Compute a workspace's effective tier + edit access (mutation-time; uses
- * Date.now). `tier` is the live subscription's tier, or TRIAL_TIER while in the
- * free trial, or null when locked (trial over, no live subscription).
+ * Compute a workspace's effective tier + edit access. `tier` is the live
+ * subscription's tier (own or via a member's Planner plan), or null when there is
+ * no subscription (read-only).
  */
 /** The highest active (incl. dunning-grace) Planner tier `userId` holds, or null
  *  if they aren't a Planner account. Planner tiers are account-level and cover
@@ -155,10 +143,7 @@ async function computeAccess(
   if (live) {
     return { tier: isTier(live.tier) ? live.tier : "couple", canEdit: true };
   }
-  const ws = await ctx.db.get(workspaceId);
-  if (ws && Date.now() < trialEndsAtFor(ws)) {
-    return { tier: TRIAL_TIER, canEdit: true };
-  }
+  // No trial: without a live subscription the workspace is read-only.
   return { tier: null, canEdit: false };
 }
 
@@ -168,7 +153,7 @@ export async function assertCanEdit(
 ): Promise<Id<"users">> {
   const userId = await assertMember(ctx, workspaceId);
   const { canEdit } = await computeAccess(ctx, workspaceId);
-  if (!canEdit) throw new ConvexError(TRIAL_ENDED_MESSAGE);
+  if (!canEdit) throw new ConvexError(NO_SUBSCRIPTION_MESSAGE);
   return userId;
 }
 
@@ -185,7 +170,7 @@ export async function assertTierFeature(
 ): Promise<Id<"users">> {
   const userId = await assertMember(ctx, workspaceId);
   const { tier, canEdit } = await computeAccess(ctx, workspaceId);
-  if (!canEdit || !tier) throw new ConvexError(TRIAL_ENDED_MESSAGE);
+  if (!canEdit || !tier) throw new ConvexError(NO_SUBSCRIPTION_MESSAGE);
   if (!tierHasFeature(tier, feature)) {
     throw new ConvexError(
       `${FEATURE_LABEL[feature]} is a ${titleCase(FEATURE_MIN_TIER[feature])} feature. ` +

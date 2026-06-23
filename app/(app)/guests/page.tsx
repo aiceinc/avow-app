@@ -109,7 +109,7 @@ export default function GuestsPage() {
   const attending = (guests ?? []).filter(g => rsvpStatusOf(g) === 'yes').length;
   const isEmpty = !loading && total === 0;
 
-  // Per-tier guest cap (Standard / free trial = 100; Pro & Planner unlimited).
+  // Per-tier guest cap (all current tiers = unlimited; kept for future caps).
   const cap = entitlement.tier ? guestCapFor(entitlement.tier) : null;
   const atCap = cap !== null && total >= cap;
   const canAdd = entitlement.canEdit && !atCap;

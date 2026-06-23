@@ -247,16 +247,12 @@ function BillingSection() {
         <div className="space-y-3">
           <p className="text-sm text-ink-soft">
             You&rsquo;re on the <strong className="text-ink">{tierName(subscription.tier)}</strong> plan
-            {' '}(<span className="text-ink">{subscription.status === 'trialing' ? 'free trial' : subscription.status}</span>,
+            {' '}(<span className="text-ink">{subscription.status}</span>,
             billed {subscription.interval === 'year' ? 'annually' : 'monthly'}).
           </p>
           {subscription.currentPeriodEnd && (
             <p className="text-xs text-ink-faint">
-              {subscription.cancelAtPeriodEnd
-                ? 'Cancels'
-                : subscription.status === 'trialing'
-                ? 'Trial ends'
-                : 'Renews'}{' '}
+              {subscription.cancelAtPeriodEnd ? 'Cancels' : 'Renews'}{' '}
               on {new Date(subscription.currentPeriodEnd * 1000).toLocaleDateString()}.
             </p>
           )}
@@ -275,19 +271,9 @@ function BillingSection() {
         </div>
       ) : (
         <div className="space-y-4">
-          {entitlement.status === 'locked' ? (
-            <p className="text-sm text-red-700">
-              Your free trial has ended — your wedding is read-only until you subscribe.
-            </p>
-          ) : entitlement.status === 'trial' ? (
-            <p className="text-sm text-ink-soft">
-              You&rsquo;re on a free trial —{' '}
-              <strong className="text-ink">
-                {entitlement.trialDaysLeft} day{entitlement.trialDaysLeft === 1 ? '' : 's'} left
-              </strong>
-              . No card needed until you choose a plan.
-            </p>
-          ) : null}
+          <p className="text-sm text-ink-soft">
+            Choose a plan to start planning your wedding — your subscription begins right away.
+          </p>
           <div className="flex items-center gap-3">
             <span className={`text-sm transition-colors ${interval === 'month' ? 'text-ink font-medium' : 'text-ink-soft'}`}>Monthly</span>
             <button

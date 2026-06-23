@@ -118,7 +118,6 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   const [annual, setAnnual] = useState(false);
-  const [remind, setRemind] = useState(true);
 
   function openAuth(f: Flow) {
     setFlow(f);
@@ -189,7 +188,7 @@ export default function AuthPage() {
             onClick={() => openAuth('signUp')}
             className="text-[0.78rem] font-medium tracking-wide text-bg border border-bg/35 rounded-sm px-4 py-2 hover:bg-bg hover:text-ink transition-colors"
           >
-            Start free trial
+            Get started
           </button>
         </div>
       </nav>
@@ -209,13 +208,13 @@ export default function AuthPage() {
             </p>
             <div className="flex items-center gap-6 flex-wrap">
               <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">
-                Start your 14-day trial
+                Get started
               </button>
               <button onClick={() => scrollToId('how')} className="text-sm text-ink-soft border-b border-ink/20 pb-px hover:text-ink transition-colors">
                 See how it works
               </button>
             </div>
-            <p className="text-xs text-ink-faint mt-4">No card required. Free for 14 days — subscribe any time to keep going.</p>
+            <p className="text-xs text-ink-faint mt-4">Plans from $49/mo · cancel anytime.</p>
           </div>
         </div>
 
@@ -285,21 +284,10 @@ export default function AuthPage() {
           <span className="text-[0.65rem] font-medium bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-sm tracking-wide">Save 20%</span>
         </div>
 
-        {/* Trial notice + reminder */}
-        <div className="flex items-center justify-center gap-6 flex-wrap mb-8">
-          <span className="text-[0.78rem] text-ink-soft">Every plan starts with a 14-day free trial — no card required. Add a card only when you choose to subscribe.</span>
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <span
-              role="switch"
-              aria-checked={remind}
-              onClick={() => setRemind((r) => !r)}
-              className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${remind ? 'bg-accent' : 'bg-rule'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${remind ? 'translate-x-4' : ''}`} />
-            </span>
-            <span className="text-xs text-ink-soft">{remind ? 'Remind me 3 days before trial ends' : 'No reminder'}</span>
-          </label>
-        </div>
+        {/* Billing notice */}
+        <p className="text-center text-[0.78rem] text-ink-soft mb-8">
+          Billed monthly or annually · your subscription starts right away · cancel anytime.
+        </p>
 
         <div className="grid md:grid-cols-3 gap-6">
           {TIERS.map((t) => (
@@ -313,7 +301,7 @@ export default function AuthPage() {
         <h2 className="font-serif font-light text-5xl leading-tight mb-4">
           Your wedding,<br /><em className="italic">beautifully organised</em>
         </h2>
-        <p className="text-[15px] text-ink-soft mb-8">Start your 14-day free trial today — no card required.</p>
+        <p className="text-[15px] text-ink-soft mb-8">Get started today — cancel anytime.</p>
         <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">Get started</button>
       </section>
 
@@ -479,9 +467,9 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
             : 'border-ink text-ink hover:bg-ink hover:text-bg'
         }`}
       >
-        Start 14-day trial
+        Get started
       </button>
-      <div className="text-[0.68rem] text-ink-faint text-center mt-3">No card required to start.</div>
+      <div className="text-[0.68rem] text-ink-faint text-center mt-3">Cancel anytime.</div>
     </div>
   );
 }

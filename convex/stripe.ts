@@ -61,7 +61,7 @@ export const createCheckoutSession = action({
       });
     }
 
-    // The free trial is app-managed, Standard-level, and needs no card. Choosing
+    // There is no trial — a paid subscription is required to access content. Choosing
     // a paid plan ENDS the trial: we start a normal paid subscription with NO
     // Stripe trial, so the customer is charged immediately and the paid term
     // begins right away (no "N days free of <paid tier>").

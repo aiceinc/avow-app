@@ -5,9 +5,9 @@
  * (app) route-group layout. The layout selects/validates the workspace once and
  * shares it here, so switching tabs never loses workspace or auth state.
  *
- * As of v1.11.1 it also carries the workspace's billing ENTITLEMENT (trial /
- * active / past-due / locked) so any module can read `canEdit` and the shell can
- * render the trial-countdown / payment-failed / paywall banners.
+ * It also carries the workspace's billing ENTITLEMENT (active / past-due /
+ * locked) so any module can read `canEdit` and the shell can render the
+ * payment-failed / paywall banners. There is no trial — access needs a plan.
  */
 
 import { createContext, useContext } from 'react';
@@ -15,19 +15,15 @@ import { Id } from '@/convex/_generated/dataModel';
 import type { Tier } from '@/convex/billingConfig';
 
 /** Billing/access state for the active workspace. */
-export type BillingStatus = 'loading' | 'trial' | 'active' | 'past_due' | 'locked';
+export type BillingStatus = 'loading' | 'active' | 'past_due' | 'locked';
 
 export type Entitlement = {
   status: BillingStatus;
-  /** Effective plan tier: the live subscription's tier, 'couple' during the
-   *  free trial, or null when locked. Drives per-tier limits. */
+  /** Effective plan tier: the live subscription's tier, or null when locked
+   *  (no subscription). Drives per-tier limits. */
   tier: Tier | null;
-  /** False only when the trial has lapsed with no live subscription (read-only). */
+  /** False when there is no live subscription (read-only). */
   canEdit: boolean;
-  /** Whole days remaining in the free trial (0 once expired). */
-  trialDaysLeft: number;
-  /** Unix-ms instant the free trial ends, or null while loading. */
-  trialEndsAt: number | null;
   /** A recent invoice failed to charge — prompt to update the card. */
   paymentFailed: boolean;
   /** A live (active / trialing / past-due) Stripe subscription exists. */
