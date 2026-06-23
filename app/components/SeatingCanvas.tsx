@@ -28,6 +28,8 @@ import {
   getRadius, getWidth, getHeight,
   clamp,
   getSeatLocalPosition,
+  getPlacematPosition,
+  PLACEMAT_W, PLACEMAT_H,
   findNearestSeat,
   pxToFeetLabel,
   type TableDims,
@@ -105,6 +107,31 @@ function RemoteCursor({ x, y, label, color }: {
   );
 }
 
+// ── Placemat ───────────────────────────────────────────────────────────────────
+
+/**
+ * A small place setting (napkin + plate + fork/knife) drawn on the table surface
+ * in front of a seat. Non-interactive; lives inside the table Group so it rotates
+ * with the table — you can read the orientation at a glance.
+ */
+function Placemat({ x, y, rotation }: { x: number; y: number; rotation: number }) {
+  return (
+    <Group x={x} y={y} rotation={rotation} listening={false}>
+      {/* Napkin */}
+      <Rect
+        x={-PLACEMAT_W / 2} y={-PLACEMAT_H / 2} width={PLACEMAT_W} height={PLACEMAT_H}
+        cornerRadius={2} fill="#fdfbf8" stroke="#e7ddcf" strokeWidth={0.75}
+      />
+      {/* Plate */}
+      <Circle radius={PLACEMAT_H / 2 - 2.5} fill="#ffffff" stroke="#d8c7ad" strokeWidth={0.75} />
+      <Circle radius={PLACEMAT_H / 2 - 4.5} stroke="#ece3d5" strokeWidth={0.5} />
+      {/* Fork (left) + knife (right) */}
+      <Line points={[-PLACEMAT_W / 2 + 3, -3.5, -PLACEMAT_W / 2 + 3, 3.5]} stroke="#c9b89c" strokeWidth={1} lineCap="round" />
+      <Line points={[PLACEMAT_W / 2 - 3, -3.5, PLACEMAT_W / 2 - 3, 3.5]} stroke="#c9b89c" strokeWidth={1} lineCap="round" />
+    </Group>
+  );
+}
+
 // ── TableNode ──────────────────────────────────────────────────────────────────
 
 function TableNode({
@@ -176,24 +203,32 @@ function TableNode({
         />
       )}
 
-      {/* Label */}
-      {table.label ? (
-        <Text
-          text={table.label} x={-60} y={-9} width={120}
-          align="center" fontSize={11} fill={C.labelText}
-          fontFamily="system-ui, sans-serif" listening={false}
-        />
-      ) : null}
+      {/* Placemats — a place setting in front of each seat (rotate with the table) */}
+      {Array.from({ length: table.seatCount }, (_, i) => {
+        const p = getPlacematPosition(table.shape, table.seatCount, i, dims);
+        return <Placemat key={`pm-${i}`} x={p.x} y={p.y} rotation={p.rotation} />;
+      })}
 
-      {/* Live dimensions — visible while the table is selected, updated during
-          resize, hidden once you click away. */}
-      {isSelected ? (
-        <Text
-          text={dimLabel} x={-60} y={table.label ? 7 : -5} width={120}
-          align="center" fontSize={10} fill={C.tableStrokeSelect}
-          fontFamily="system-ui, sans-serif" listening={false}
-        />
-      ) : null}
+      {/* Labels — counter-rotated so they stay upright when the table is rotated */}
+      <Group rotation={-rotation} listening={false}>
+        {table.label ? (
+          <Text
+            text={table.label} x={-60} y={-9} width={120}
+            align="center" fontSize={11} fill={C.labelText}
+            fontFamily="system-ui, sans-serif" listening={false}
+          />
+        ) : null}
+
+        {/* Live dimensions — visible while the table is selected, updated during
+            resize, hidden once you click away. */}
+        {isSelected ? (
+          <Text
+            text={dimLabel} x={-60} y={table.label ? 7 : -5} width={120}
+            align="center" fontSize={10} fill={C.tableStrokeSelect}
+            fontFamily="system-ui, sans-serif" listening={false}
+          />
+        ) : null}
+      </Group>
 
       {/* Seats */}
       {Array.from({ length: table.seatCount }, (_, i) => {

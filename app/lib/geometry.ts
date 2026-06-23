@@ -124,6 +124,53 @@ export function getSeatLocalPosition(
   }
 }
 
+// ── Placemats ─────────────────────────────────────────────────────────────────
+// A small place-setting (napkin + plate + cutlery) drawn ON the table surface, in
+// front of each seat, just inside the table edge. Rotates with the table.
+export const PLACEMAT_W = 22;
+export const PLACEMAT_H = 15;
+const PLACEMAT_INSET = 13; // distance from the table edge inward to the placemat centre
+
+/**
+ * Local position + facing (degrees) of the placemat for `seatIndex`, BEFORE the
+ * table's own rotation. Mirrors getSeatLocalPosition but sits inside the edge and
+ * is oriented tangentially so the setting faces the table centre.
+ */
+export function getPlacematPosition(
+  shape: 'round' | 'rectangular',
+  seatCount: number,
+  seatIndex: number,
+  dims?: TableDims
+): { x: number; y: number; rotation: number } {
+  if (shape === 'round') {
+    const dist  = Math.max(8, getRadius(dims) - PLACEMAT_INSET);
+    const angle = ((2 * Math.PI * seatIndex) / seatCount) - Math.PI / 2;
+    return {
+      x: Math.cos(angle) * dist,
+      y: Math.sin(angle) * dist,
+      rotation: (angle * 180) / Math.PI + 90, // tangential to the rim
+    };
+  }
+
+  const w = getWidth(dims);
+  const h = getHeight(dims);
+  const topCount = Math.ceil(seatCount / 2);
+  const botCount = Math.floor(seatCount / 2);
+  if (seatIndex < topCount) {
+    return {
+      x: -w / 2 + (w / (topCount + 1)) * (seatIndex + 1),
+      y: -(h / 2 - PLACEMAT_INSET),
+      rotation: 0,
+    };
+  }
+  const i = seatIndex - topCount;
+  return {
+    x: -w / 2 + (w / (botCount + 1)) * (i + 1),
+    y: h / 2 - PLACEMAT_INSET,
+    rotation: 180,
+  };
+}
+
 /**
  * Rotate point (x, y) around the origin by `deg` degrees.
  */

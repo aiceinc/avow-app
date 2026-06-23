@@ -74,14 +74,23 @@ function grid(
     opts.startY ?? (gridH + 260 <= canvasH ? Math.round((canvasH - gridH) / 2) : 130);
   const prefix = opts.labelPrefix ?? 'Table';
 
-  return Array.from({ length: count }, (_, i) => ({
-    shape,
-    seatCount,
-    x: startX + (i % cols) * colSpacing,
-    y: startY + Math.floor(i / cols) * rowSpacing,
-    rotation: 0,
-    label: `${prefix} ${i + 1}`,
-  }));
+  // Half the angular spacing between seats — the offset that makes a rotated
+  // round table's chairs interlock with its neighbours' rather than back up.
+  const halfSeat = 180 / seatCount;
+
+  return Array.from({ length: count }, (_, i) => {
+    const checker = ((i % cols) + Math.floor(i / cols)) % 2; // checkerboard
+    return {
+      shape,
+      seatCount,
+      x: startX + (i % cols) * colSpacing,
+      y: startY + Math.floor(i / cols) * rowSpacing,
+      // Pre-rotate alternating round tables so neighbouring chairs don't sit
+      // back-to-back. (Rectangular rows don't have this problem.)
+      rotation: shape === 'round' && checker === 1 ? halfSeat : 0,
+      label: `${prefix} ${i + 1}`,
+    };
+  });
 }
 
 /** A template of identical tables (round or rectangular) sized to the target. */
