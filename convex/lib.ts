@@ -228,6 +228,7 @@ const WORKSPACE_SCOPED_TABLES = [
   "tasks",
   "notes",
   "subscriptions",
+  "seatingLayouts",
 ] as const;
 
 /**

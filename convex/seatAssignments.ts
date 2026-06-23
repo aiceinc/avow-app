@@ -75,14 +75,17 @@ export const assign = mutation({
       await ctx.db.delete(seatOccupant._id);
     }
 
-    // 2. Remove any existing assignment for this guest
-    const guestExisting = await ctx.db
+    // 2. Remove the guest's existing assignment IN THIS LAYOUT only — a guest may
+    //    be seated once per layout (e.g. dinner AND reception).
+    const guestSeats = await ctx.db
       .query("seatAssignments")
       .withIndex("by_guestId", (q) => q.eq("guestId", args.guestId))
-      .unique();
-
-    if (guestExisting !== null) {
-      await ctx.db.delete(guestExisting._id);
+      .take(50);
+    for (const gs of guestSeats) {
+      const gsTable = await ctx.db.get(gs.tableId);
+      if (gsTable && gsTable.layoutId === table.layoutId) {
+        await ctx.db.delete(gs._id);
+      }
     }
 
     // 3. Create the new assignment
@@ -96,22 +99,30 @@ export const assign = mutation({
 });
 
 /**
- * Unassign a guest from their current seat.
+ * Unassign a guest from their seat. Scoped to `layoutId` when given (remove only
+ * the assignment in that layout); otherwise removes all of the guest's seats.
  */
 export const unassign = mutation({
-  args: { guestId: v.id("guests") },
+  args: {
+    guestId: v.id("guests"),
+    layoutId: v.optional(v.id("seatingLayouts")),
+  },
   handler: async (ctx, args) => {
     const guest = await ctx.db.get(args.guestId);
     if (!guest) return;
     await assertTierFeature(ctx, guest.workspaceId, "seating");
 
-    const assignment = await ctx.db
+    const seats = await ctx.db
       .query("seatAssignments")
       .withIndex("by_guestId", (q) => q.eq("guestId", args.guestId))
-      .unique();
-
-    if (assignment !== null) {
-      await ctx.db.delete(assignment._id);
+      .take(50);
+    for (const s of seats) {
+      if (args.layoutId === undefined) {
+        await ctx.db.delete(s._id);
+        continue;
+      }
+      const t = await ctx.db.get(s.tableId);
+      if (t && t.layoutId === args.layoutId) await ctx.db.delete(s._id);
     }
   },
 });

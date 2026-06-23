@@ -472,6 +472,7 @@ type Props = {
   onSizeChange?:      (width: number, height: number) => void;
   venueWidthFt?:      number;
   venueHeightFt?:     number;
+  onVenueResize?:     (widthFt: number, lengthFt: number) => void;
   editLabel:          string;
   editSeatCount:      number;
   onEditLabel:        (v: string) => void;
@@ -496,6 +497,7 @@ export default function SeatingCanvas({
   onSizeChange,
   venueWidthFt,
   venueHeightFt,
+  onVenueResize,
   editLabel,
   editSeatCount,
   onEditLabel,
@@ -521,17 +523,32 @@ export default function SeatingCanvas({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Venue boundary + zoom-to-fit transform ────────────────────────────────
-  const venue =
+  // While a venue edge is being dragged, the transform is FROZEN (so the edge
+  // visibly moves instead of the whole view just rescaling to keep fitting).
+  const [venueDrag, setVenueDrag] = useState<
+    { w: number; h: number; startScale: number; startOX: number; startOY: number } | null
+  >(null);
+
+  const committedVenue =
     venueWidthFt && venueHeightFt
       ? { w: venueWidthFt * PX_PER_FOOT, h: venueHeightFt * PX_PER_FOOT }
       : null;
-  // Scale so the venue fits the viewport (with padding) and centre it. With no
-  // venue, the transform is identity — unchanged behaviour.
-  const scale = venue
-    ? Math.min((size.width * 0.92) / venue.w, (size.height * 0.92) / venue.h)
+  const venue = venueDrag ? { w: venueDrag.w, h: venueDrag.h } : committedVenue;
+  const fitScale = committedVenue
+    ? Math.min((size.width * 0.92) / committedVenue.w, (size.height * 0.92) / committedVenue.h)
     : 1;
-  const offsetX = venue ? Math.round((size.width - venue.w * scale) / 2) : 0;
-  const offsetY = venue ? Math.round((size.height - venue.h * scale) / 2) : 0;
+  const scale   = venueDrag ? venueDrag.startScale : fitScale;
+  const offsetX = venueDrag
+    ? venueDrag.startOX
+    : committedVenue ? Math.round((size.width - committedVenue.w * fitScale) / 2) : 0;
+  const offsetY = venueDrag
+    ? venueDrag.startOY
+    : committedVenue ? Math.round((size.height - committedVenue.h * fitScale) / 2) : 0;
+
+  function commitVenueResize(wPx: number, hPx: number) {
+    setVenueDrag(null);
+    onVenueResize?.(Math.round(wPx / PX_PER_FOOT), Math.round(hPx / PX_PER_FOOT));
+  }
 
   /** Convert a screen (clientX/Y) point to canvas world coordinates. Re-created
    *  only when the transform changes, so the pointer handlers that depend on it
@@ -942,18 +959,42 @@ export default function SeatingCanvas({
         y={offsetY}
         onClick={() => { if (!placing) onSelectTable(null); }}
       >
-        {/* Venue boundary — drawn to scale, behind everything */}
+        {/* Venue boundary — drawn to scale, with draggable edge handles */}
         {venue && (
-          <Layer listening={false}>
+          <Layer>
             <Rect
+              listening={false}
               x={0} y={0} width={venue.w} height={venue.h}
               stroke={C.venueStroke} strokeWidth={3 / scale} cornerRadius={6 / scale}
             />
             <Text
-              text={`${venueWidthFt} × ${venueHeightFt} ft`}
+              listening={false}
+              text={`${Math.round(venue.w / PX_PER_FOOT)} × ${Math.round(venue.h / PX_PER_FOOT)} ft`}
               x={0} y={-20 / scale} width={venue.w}
               align="center" fontSize={13 / scale} fill={C.venueLabel}
               fontFamily="system-ui, sans-serif"
+            />
+            {/* Right edge — drag to change width */}
+            <Circle
+              x={venue.w} y={venue.h / 2} radius={8 / scale}
+              fill={C.venueStroke} stroke="#ffffff" strokeWidth={2 / scale}
+              draggable
+              onMouseEnter={(e) => { const s = e.target.getStage(); if (s) s.container().style.cursor = 'ew-resize'; }}
+              onMouseLeave={(e) => { const s = e.target.getStage(); if (s) s.container().style.cursor = 'default'; }}
+              onDragStart={() => setVenueDrag({ w: venue.w, h: venue.h, startScale: scale, startOX: offsetX, startOY: offsetY })}
+              onDragMove={(e) => { const nx = Math.max(120, e.target.x()); e.target.x(nx); e.target.y(venue.h / 2); setVenueDrag(p => (p ? { ...p, w: nx } : p)); }}
+              onDragEnd={(e) => commitVenueResize(Math.max(120, e.target.x()), venue.h)}
+            />
+            {/* Bottom edge — drag to change length */}
+            <Circle
+              x={venue.w / 2} y={venue.h} radius={8 / scale}
+              fill={C.venueStroke} stroke="#ffffff" strokeWidth={2 / scale}
+              draggable
+              onMouseEnter={(e) => { const s = e.target.getStage(); if (s) s.container().style.cursor = 'ns-resize'; }}
+              onMouseLeave={(e) => { const s = e.target.getStage(); if (s) s.container().style.cursor = 'default'; }}
+              onDragStart={() => setVenueDrag({ w: venue.w, h: venue.h, startScale: scale, startOX: offsetX, startOY: offsetY })}
+              onDragMove={(e) => { const ny = Math.max(120, e.target.y()); e.target.y(ny); e.target.x(venue.w / 2); setVenueDrag(p => (p ? { ...p, h: ny } : p)); }}
+              onDragEnd={(e) => commitVenueResize(venue.w, Math.max(120, e.target.y()))}
             />
           </Layer>
         )}

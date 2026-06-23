@@ -16,6 +16,7 @@ import type * as crons from "../crons.js";
 import type * as cursors from "../cursors.js";
 import type * as guests from "../guests.js";
 import type * as http from "../http.js";
+import type * as layouts from "../layouts.js";
 import type * as lib from "../lib.js";
 import type * as notes from "../notes.js";
 import type * as public_ from "../public.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   cursors: typeof cursors;
   guests: typeof guests;
   http: typeof http;
+  layouts: typeof layouts;
   lib: typeof lib;
   notes: typeof notes;
   public: typeof public_;

@@ -37,6 +37,7 @@ export const create = mutation({
     width: v.optional(v.number()),
     height: v.optional(v.number()),
     kind: v.optional(v.union(v.literal("seating"), v.literal("object"))),
+    layoutId: v.optional(v.id("seatingLayouts")),
   },
   handler: async (ctx, args) => {
     await assertTierFeature(ctx, args.workspaceId, "seating");
@@ -50,6 +51,7 @@ export const create = mutation({
 export const createBatch = mutation({
   args: {
     workspaceId: v.id("workspaces"),
+    layoutId: v.optional(v.id("seatingLayouts")),
     tables: v.array(
       v.object({
         shape: v.union(v.literal("round"), v.literal("rectangular")),
@@ -67,6 +69,7 @@ export const createBatch = mutation({
     for (const table of args.tables) {
       const id = await ctx.db.insert("tables", {
         workspaceId: args.workspaceId,
+        layoutId: args.layoutId,
         ...table,
       });
       ids.push(id);
@@ -127,27 +130,34 @@ export const remove = mutation({
 });
 
 /**
- * Remove all tables and seat assignments in a workspace.
+ * Remove all tables and seat assignments — for a single layout when `layoutId`
+ * is given (multi-layout "Start over"), or the whole workspace otherwise (legacy).
  * Called before applying a layout template.
  */
 export const clearAll = mutation({
-  args: { workspaceId: v.id("workspaces") },
+  args: {
+    workspaceId: v.id("workspaces"),
+    layoutId: v.optional(v.id("seatingLayouts")),
+  },
   handler: async (ctx, args) => {
     await assertTierFeature(ctx, args.workspaceId, "seating");
 
-    const assignments = await ctx.db
-      .query("seatAssignments")
-      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(500);
-    for (const a of assignments) {
-      await ctx.db.delete(a._id);
-    }
+    const tables = args.layoutId
+      ? await ctx.db
+          .query("tables")
+          .withIndex("by_layoutId", (q) => q.eq("layoutId", args.layoutId))
+          .take(1000)
+      : await ctx.db
+          .query("tables")
+          .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
+          .take(1000);
 
-    const tables = await ctx.db
-      .query("tables")
-      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
-      .take(500);
     for (const t of tables) {
+      const seats = await ctx.db
+        .query("seatAssignments")
+        .withIndex("by_tableId", (q) => q.eq("tableId", t._id))
+        .take(500);
+      for (const s of seats) await ctx.db.delete(s._id);
       await ctx.db.delete(t._id);
     }
   },

@@ -117,6 +117,7 @@ export type TemplateKey =
   | 'rounds-6'
   | 'long-banquet'
   | 'classroom'
+  | 'ceremony-rows'
   | 'u-shape';
 
 export const TEMPLATES: Record<TemplateKey, Template> = {
@@ -154,6 +155,32 @@ export const TEMPLATES: Record<TemplateKey, Template> = {
     'rectangular',
     6
   ),
+
+  'ceremony-rows': {
+    label: 'Ceremony / reception rows',
+    description: 'Straight rows of benches facing the front',
+    plan: (t) => {
+      const benches = Math.max(1, Math.ceil(Math.max(0, t) / 8));
+      return { tableCount: benches, totalSeats: benches * 8 };
+    },
+    build: (w, h, t) => {
+      const benches = Math.max(1, Math.ceil(Math.max(0, t) / 8));
+      const colSpacing = TABLE_WIDTH + 30;
+      const perRow = Math.max(1, Math.min(benches, Math.floor((w - 200) / colSpacing) || 1));
+      const rowSpacing = RECT_ROW_SPACING + 36;
+      const gridW = (perRow - 1) * colSpacing;
+      const startX = gridW + 200 <= w ? Math.round((w - gridW) / 2) : 130;
+      const startY = 150;
+      return Array.from({ length: benches }, (_, i) => ({
+        shape: 'rectangular' as const,
+        seatCount: 8,
+        x: startX + (i % perRow) * colSpacing,
+        y: startY + Math.floor(i / perRow) * rowSpacing,
+        rotation: 0,
+        label: `Bench ${i + 1}`,
+      }));
+    },
+  },
 
   'u-shape': {
     label: 'U-shape head table + rounds',

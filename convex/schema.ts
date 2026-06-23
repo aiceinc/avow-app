@@ -128,6 +128,22 @@ export default defineSchema({
     radius: v.optional(v.number()), // round tables
     width: v.optional(v.number()),  // rectangular tables
     height: v.optional(v.number()), // rectangular tables
+    // Which seating layout this table belongs to (v1.18.0 — multi-layout). Absent
+    // on pre-v1.18 tables; layouts.ensure adopts those into the first layout.
+    layoutId: v.optional(v.id("seatingLayouts")),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_layoutId", ["layoutId"]),
+
+  // ── seatingLayouts (v1.18.0) ──────────────────────────────────────────────
+  // A wedding can have multiple seating arrangements (dinner, reception/ceremony,
+  // extra spaces). Each layout owns its own tables + venue. Workspace-scoped.
+  seatingLayouts: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    order: v.number(),
+    venueWidthFt: v.optional(v.number()),
+    venueLengthFt: v.optional(v.number()),
   }).index("by_workspaceId", ["workspaceId"]),
 
   // ── seatAssignments ───────────────────────────────────────────────────────
