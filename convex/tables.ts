@@ -36,6 +36,7 @@ export const create = mutation({
     radius: v.optional(v.number()),
     width: v.optional(v.number()),
     height: v.optional(v.number()),
+    kind: v.optional(v.union(v.literal("seating"), v.literal("object"))),
   },
   handler: async (ctx, args) => {
     await assertTierFeature(ctx, args.workspaceId, "seating");

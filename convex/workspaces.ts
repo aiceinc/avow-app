@@ -130,6 +130,27 @@ export const create = mutation({
 });
 
 /**
+ * Set (or clear) the venue floor-plan dimensions in feet for the seating planner.
+ * Pass null for either to clear the venue boundary.
+ */
+export const setVenue = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    widthFt: v.union(v.number(), v.null()),
+    heightFt: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    await assertCanEdit(ctx, args.workspaceId);
+    await ctx.db.patch(args.workspaceId, {
+      venueWidthFt:
+        args.widthFt === null ? undefined : Math.min(500, Math.max(5, Math.round(args.widthFt))),
+      venueHeightFt:
+        args.heightFt === null ? undefined : Math.min(500, Math.max(5, Math.round(args.heightFt))),
+    });
+  },
+});
+
+/**
  * Generate a shareable invite link token for a workspace.
  * Only existing members can generate invites.
  * Only workspaces with fewer than 2 members can invite.

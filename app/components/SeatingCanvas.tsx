@@ -30,6 +30,7 @@ import {
   getSeatLocalPosition,
   getPlacematPosition,
   PLACEMAT_W, PLACEMAT_H,
+  PX_PER_FOOT,
   findNearestSeat,
   pxToFeetLabel,
   type TableDims,
@@ -43,6 +44,7 @@ type ClipboardTable = {
   radius?:    number;
   width?:     number;
   height?:    number;
+  kind?:      'seating' | 'object';
 };
 
 // ── Colour palette ─────────────────────────────────────────────────────────────
@@ -59,6 +61,10 @@ const C = {
   labelText:          '#6b7280',
   guestText:          '#ffffff',
   canvasBg:           '#faf6f0',
+  objectFill:         '#eef0f3',
+  objectStroke:       '#c0c6cf',
+  venueStroke:        '#b3a890',
+  venueLabel:         '#9a8a72',
 };
 
 const CURSOR_TTL_MS      = 4_000;
@@ -156,11 +162,14 @@ function TableNode({
   for (const a of tableAssignments) seatMap.set(a.seatIndex, a);
 
   const rotation    = rotationOverride ?? table.rotation;
+  const isObject    = table.kind === 'object';
   const active      = isRotating || isResizing;
   const strokeColor = isRotating ? C.tableStrokeRotate
                     : isResizing ? C.tableStrokeResize
                     : isSelected ? C.tableStrokeSelect
+                    : isObject ? C.objectStroke
                     : C.tableStroke;
+  const bodyFill    = isObject ? C.objectFill : C.tableFill;
   const strokeWidth = (active || isSelected) ? 2 : 1.5;
   const dash        = active ? ([5, 3] as number[]) : undefined;
 
@@ -192,13 +201,13 @@ function TableNode({
       {table.shape === 'round' ? (
         <Circle
           radius={r}
-          fill={C.tableFill} stroke={strokeColor} strokeWidth={strokeWidth} dash={dash}
+          fill={bodyFill} stroke={strokeColor} strokeWidth={strokeWidth} dash={dash}
         />
       ) : (
         <Rect
           x={-w / 2} y={-h / 2}
           width={w} height={h}
-          fill={C.tableFill} stroke={strokeColor} strokeWidth={strokeWidth}
+          fill={bodyFill} stroke={strokeColor} strokeWidth={strokeWidth}
           cornerRadius={5} dash={dash}
         />
       )}
@@ -312,7 +321,7 @@ function GhostTable({ clip, x, y }: { clip: ClipboardTable; x: number; y: number
  * In rotate mode the Rotate button turns blue and shows "Drag to rotate".
  */
 function FloatingEditPanel({
-  table, liveDragX, liveDragY, canvasW, canvasH,
+  table, liveDragX, liveDragY, canvasW, canvasH, scale, offsetX, offsetY, isObject,
   label, seatCount, rotateMode, resizeMode,
   onLabel, onSeatCount, onToggleRotate, onToggleResize, onCopy, onCommitLabel, onCommitSeatCount, onDelete, onClose,
 }: {
@@ -321,6 +330,10 @@ function FloatingEditPanel({
   liveDragY?:         number;
   canvasW:            number;
   canvasH:            number;
+  scale:              number;
+  offsetX:            number;
+  offsetY:            number;
+  isObject:           boolean;
   label:              string;
   seatCount:          number;
   rotateMode:         boolean;
@@ -338,18 +351,21 @@ function FloatingEditPanel({
   const POPUP_W = 165;
   const POPUP_H = 222; // approximate height for clamping
 
-  // Follow the table during a drag
+  // Follow the table during a drag (world coords)
   const cx = liveDragX ?? table.x;
   const cy = liveDragY ?? table.y;
 
-  // Anchor just to the right of the table, vertically centred on it
-  const gap     = 6;
-  const anchorX = table.shape === 'round'
+  // Anchor just to the right of the table, then map world → screen so the panel
+  // tracks correctly under the venue zoom-to-fit transform.
+  const gap     = 6 / scale;
+  const anchorXWorld = table.shape === 'round'
     ? cx + getRadius(table) + gap
     : cx + getWidth(table) / 2 + gap;
+  const anchorX  = anchorXWorld * scale + offsetX;
+  const cyScreen = cy * scale + offsetY;
 
-  const left = Math.min(Math.max(anchorX, 8),           canvasW - POPUP_W - 8);
-  const top  = Math.min(Math.max(cy - POPUP_H / 2, 8),  canvasH - POPUP_H - 8);
+  const left = Math.min(Math.max(anchorX, 8),                canvasW - POPUP_W - 8);
+  const top  = Math.min(Math.max(cyScreen - POPUP_H / 2, 8), canvasH - POPUP_H - 8);
 
   return (
     <div
@@ -372,29 +388,31 @@ function FloatingEditPanel({
         <button onClick={onClose} className="text-ink-faint hover:text-ink-soft text-xs shrink-0 transition-colors">✕</button>
       </div>
 
-      {/* Seat count — stepper */}
-      <div className="flex items-center justify-between text-xs text-ink-soft mb-2.5">
-        <span>Seats</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const n = Math.max(1, seatCount - 1);
-              onSeatCount(n);
-              onCommitSeatCount(n);
-            }}
-            className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
-          >−</button>
-          <span className="w-5 text-center font-medium text-ink tabular-nums">{seatCount}</span>
-          <button
-            onClick={() => {
-              const n = Math.min(20, seatCount + 1);
-              onSeatCount(n);
-              onCommitSeatCount(n);
-            }}
-            className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
-          >+</button>
+      {/* Seat count — stepper (hidden for decorative objects) */}
+      {!isObject && (
+        <div className="flex items-center justify-between text-xs text-ink-soft mb-2.5">
+          <span>Seats</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const n = Math.max(1, seatCount - 1);
+                onSeatCount(n);
+                onCommitSeatCount(n);
+              }}
+              className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
+            >−</button>
+            <span className="w-5 text-center font-medium text-ink tabular-nums">{seatCount}</span>
+            <button
+              onClick={() => {
+                const n = Math.min(20, seatCount + 1);
+                onSeatCount(n);
+                onCommitSeatCount(n);
+              }}
+              className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
+            >+</button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Rotate (blue, matches crosshair) + Resize (gold, matches handles) — side by side */}
       <div className="flex gap-2 mb-2.5">
@@ -452,6 +470,8 @@ type Props = {
   selectedTableId:    string | null;
   onSelectTable:      (id: string | null) => void;
   onSizeChange?:      (width: number, height: number) => void;
+  venueWidthFt?:      number;
+  venueHeightFt?:     number;
   editLabel:          string;
   editSeatCount:      number;
   onEditLabel:        (v: string) => void;
@@ -474,6 +494,8 @@ export default function SeatingCanvas({
   selectedTableId,
   onSelectTable,
   onSizeChange,
+  venueWidthFt,
+  venueHeightFt,
   editLabel,
   editSeatCount,
   onEditLabel,
@@ -497,6 +519,31 @@ export default function SeatingCanvas({
     report(el.offsetWidth, el.offsetHeight);
     return () => ro.disconnect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Venue boundary + zoom-to-fit transform ────────────────────────────────
+  const venue =
+    venueWidthFt && venueHeightFt
+      ? { w: venueWidthFt * PX_PER_FOOT, h: venueHeightFt * PX_PER_FOOT }
+      : null;
+  // Scale so the venue fits the viewport (with padding) and centre it. With no
+  // venue, the transform is identity — unchanged behaviour.
+  const scale = venue
+    ? Math.min((size.width * 0.92) / venue.w, (size.height * 0.92) / venue.h)
+    : 1;
+  const offsetX = venue ? Math.round((size.width - venue.w * scale) / 2) : 0;
+  const offsetY = venue ? Math.round((size.height - venue.h * scale) / 2) : 0;
+
+  /** Convert a screen (clientX/Y) point to canvas world coordinates. Re-created
+   *  only when the transform changes, so the pointer handlers that depend on it
+   *  stay correct under the venue zoom-to-fit. */
+  const toWorld = useCallback((clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: (clientX - rect.left - offsetX) / scale,
+      y: (clientY - rect.top - offsetY) / scale,
+    };
+  }, [scale, offsetX, offsetY]);
 
   const selectedTable = tables.find(t => t._id === selectedTableId) ?? null;
 
@@ -571,6 +618,7 @@ export default function SeatingCanvas({
       radius: t.radius,
       width: t.width,
       height: t.height,
+      kind: t.kind,
     });
     setGhostPos(lastPointerRef.current ?? { x: t.x, y: t.y });
     setPlacing(true);
@@ -581,23 +629,23 @@ export default function SeatingCanvas({
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!placing || !clipboard) return;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      const { x, y } = toWorld(e.clientX, e.clientY);
       createTable({
         workspaceId,
         shape: clipboard.shape,
         seatCount: clipboard.seatCount,
-        x: Math.round(e.clientX - rect.left),
-        y: Math.round(e.clientY - rect.top),
+        x: Math.round(x),
+        y: Math.round(y),
         rotation: clipboard.rotation,
         label: `Table ${tables.length + 1}`,
+        ...(clipboard.kind ? { kind: clipboard.kind } : {}),
         ...(clipboard.radius != null ? { radius: clipboard.radius } : {}),
         ...(clipboard.width  != null ? { width:  clipboard.width }  : {}),
         ...(clipboard.height != null ? { height: clipboard.height } : {}),
       });
       setPlacing(false);
     },
-    [placing, clipboard, createTable, workspaceId, tables.length]
+    [placing, clipboard, createTable, workspaceId, tables.length, toWorld]
   );
 
   // Escape cancels placement without creating a table.
@@ -615,11 +663,8 @@ export default function SeatingCanvas({
     function onMove(e: MouseEvent) {
       const table = selectedTableRef.current;
       if (!rotateRef.current || !table) return;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const mx    = e.clientX - rect.left;
-      const my    = e.clientY - rect.top;
-      const angle = getAngleDeg(table.x, table.y, mx, my);
+      const wpt   = toWorld(e.clientX, e.clientY);
+      const angle = getAngleDeg(table.x, table.y, wpt.x, wpt.y);
       const delta = angle - rotateRef.current.startAngle;
       const rot   = ((rotateRef.current.baseRotation + delta) % 360 + 360) % 360;
       setLiveRotation(rot);
@@ -641,7 +686,7 @@ export default function SeatingCanvas({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup',   onUp);
     };
-  }, [rotateMode, updateTable]);
+  }, [rotateMode, updateTable, toWorld]);
 
   // Window-level mouse handlers for a resize drag
   useEffect(() => {
@@ -650,13 +695,8 @@ export default function SeatingCanvas({
     function onMove(e: MouseEvent) {
       const table = selectedTableRef.current;
       if (!resizeRef.current || !table) return;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const local = toLocalFrame(
-        e.clientX - rect.left - table.x,
-        e.clientY - rect.top - table.y,
-        table.rotation
-      );
+      const wpt   = toWorld(e.clientX, e.clientY);
+      const local = toLocalFrame(wpt.x - table.x, wpt.y - table.y, table.rotation);
 
       let next: TableDims;
       if ('round' in resizeRef.current) {
@@ -700,16 +740,13 @@ export default function SeatingCanvas({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup',   onUp);
     };
-  }, [resizeMode, updateTable]);
+  }, [resizeMode, updateTable, toWorld]);
 
   // Start a rotation or resize drag when the user mousedowns on/near the table
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!selectedTable) return;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const { x: mx, y: my } = toWorld(e.clientX, e.clientY);
 
       if (rotateMode) {
         const dist = Math.hypot(mx - selectedTable.x, my - selectedTable.y);
@@ -755,7 +792,7 @@ export default function SeatingCanvas({
         }
       }
     },
-    [rotateMode, resizeMode, selectedTable]
+    [rotateMode, resizeMode, selectedTable, toWorld]
   );
 
   // ── Build lookup maps ─────────────────────────────────────────────────────
@@ -786,10 +823,7 @@ export default function SeatingCanvas({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
+      const { x: px, y: py } = toWorld(e.clientX, e.clientY);
       lastPointerRef.current = { x: px, y: py };
 
       // Move the placement ghost (unthrottled, so it tracks smoothly).
@@ -809,7 +843,7 @@ export default function SeatingCanvas({
         updatedAt: now,
       });
     },
-    [upsertCursor, workspaceId, myUserId, myLabel, isAuthenticated, placing]
+    [upsertCursor, workspaceId, myUserId, myLabel, isAuthenticated, placing, toWorld]
   );
 
   useEffect(() => {
@@ -838,11 +872,11 @@ export default function SeatingCanvas({
       e.preventDefault();
       const guestId = e.dataTransfer.getData('guestId') as Id<'guests'>;
       if (!guestId) return;
-      const rect = containerRef.current!.getBoundingClientRect();
-      const hit  = findNearestSeat(tables, e.clientX - rect.left, e.clientY - rect.top);
+      const { x, y } = toWorld(e.clientX, e.clientY);
+      const hit  = findNearestSeat(tables, x, y);
       if (hit) onAssignGuest(hit.tableId as Id<'tables'>, hit.seatIndex, guestId);
     },
-    [tables, onAssignGuest]
+    [tables, onAssignGuest, toWorld]
   );
 
   // ── Rotate-mode overlay constants ─────────────────────────────────────────
@@ -902,8 +936,28 @@ export default function SeatingCanvas({
       <Stage
         width={size.width}
         height={size.height}
+        scaleX={scale}
+        scaleY={scale}
+        x={offsetX}
+        y={offsetY}
         onClick={() => { if (!placing) onSelectTable(null); }}
       >
+        {/* Venue boundary — drawn to scale, behind everything */}
+        {venue && (
+          <Layer listening={false}>
+            <Rect
+              x={0} y={0} width={venue.w} height={venue.h}
+              stroke={C.venueStroke} strokeWidth={3 / scale} cornerRadius={6 / scale}
+            />
+            <Text
+              text={`${venueWidthFt} × ${venueHeightFt} ft`}
+              x={0} y={-20 / scale} width={venue.w}
+              align="center" fontSize={13 / scale} fill={C.venueLabel}
+              fontFamily="system-ui, sans-serif"
+            />
+          </Layer>
+        )}
+
         {/* Tables layer — non-interactive while placing a ghost, so any click drops it */}
         <Layer listening={!placing}>
           {tables.map(table => (
@@ -996,6 +1050,10 @@ export default function SeatingCanvas({
           liveDragY={liveDragPos?.y}
           canvasW={size.width}
           canvasH={size.height}
+          scale={scale}
+          offsetX={offsetX}
+          offsetY={offsetY}
+          isObject={selectedTable.kind === 'object'}
           label={editLabel}
           seatCount={editSeatCount}
           rotateMode={rotateMode}

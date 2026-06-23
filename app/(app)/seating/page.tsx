@@ -22,6 +22,7 @@ import ConfirmModal from '@/app/components/ConfirmModal';
 import TableShapeIcon from '@/app/components/TableShapeIcon';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { TEMPLATES, TemplateKey, suggestTemplateKey } from '@/app/lib/templates';
+import { OBJECT_PRESETS, type ObjectPreset } from '@/app/lib/objects';
 
 const SeatingCanvas = dynamic(() => import('@/app/components/SeatingCanvas'), {
   ssr: false,
@@ -68,6 +69,7 @@ export default function SeatingPage() {
   const tables      = useQuery(api.tables.list,          { workspaceId }) ?? [];
   const guests      = useQuery(api.guests.list,          { workspaceId }) ?? [];
   const assignments = useQuery(api.seatAssignments.list, { workspaceId }) ?? [];
+  const workspace   = useQuery(api.workspaces.get,       { workspaceId });
 
   // ── Mutations ────────────────────────────────────────────────────────────
   const createTable = useMutation(api.tables.create);
@@ -77,12 +79,23 @@ export default function SeatingPage() {
   const removeTable = useMutation(api.tables.remove);
   const assign      = useMutation(api.seatAssignments.assign);
   const unassign    = useMutation(api.seatAssignments.unassign);
+  const setVenue    = useMutation(api.workspaces.setVenue);
 
   // ── UI state ────────────────────────────────────────────────────────────
   const [selectedTableId,  setSelectedTableId]  = useState<string | null>(null);
   const [draggingGuestId,  setDraggingGuestId]  = useState<string | null>(null);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const [objectMenuOpen,   setObjectMenuOpen]   = useState(false);
   const [canvasSize,       setCanvasSize]       = useState({ width: 1000, height: 650 });
+
+  // Venue dimensions (feet). The inputs show the saved value until the user
+  // types an override (kept lint-safe — no setState-in-effect sync).
+  const venueW = workspace?.venueWidthFt;
+  const venueH = workspace?.venueHeightFt;
+  const [venueWInput, setVenueWInput] = useState<string | null>(null);
+  const [venueHInput, setVenueHInput] = useState<string | null>(null);
+  const wVal = venueWInput ?? (venueW != null ? String(venueW) : '');
+  const hVal = venueHInput ?? (venueH != null ? String(venueH) : '');
 
   // Template sizing: seats to plan for. Auto-filled from the guest list; the
   // "Custom" toggle lets the user override it.
@@ -132,6 +145,13 @@ export default function SeatingPage() {
     return () => window.removeEventListener('click', handler);
   }, [templateMenuOpen]);
 
+  useEffect(() => {
+    if (!objectMenuOpen) return;
+    const handler = () => setObjectMenuOpen(false);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [objectMenuOpen]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   async function handleAddTable(shape: 'round' | 'rectangular') {
@@ -145,6 +165,39 @@ export default function SeatingPage() {
       rotation: 0,
       label: `Table ${tables.length + 1}`,
     });
+  }
+
+  async function handleAddObject(preset: ObjectPreset) {
+    setObjectMenuOpen(false);
+    const { x, y } = findOpenSpot(tables, canvasSize.width, canvasSize.height);
+    await createTable({
+      workspaceId,
+      kind: 'object',
+      shape: preset.shape,
+      seatCount: 0,
+      x,
+      y,
+      rotation: 0,
+      label: preset.label,
+      ...(preset.radius != null ? { radius: preset.radius } : {}),
+      ...(preset.width  != null ? { width:  preset.width }  : {}),
+      ...(preset.height != null ? { height: preset.height } : {}),
+    });
+  }
+
+  async function applyVenue() {
+    const w = parseInt(wVal, 10);
+    const h = parseInt(hVal, 10);
+    if (!w || !h) return;
+    await setVenue({ workspaceId, widthFt: w, heightFt: h });
+    setVenueWInput(null);
+    setVenueHInput(null);
+  }
+
+  async function clearVenue() {
+    await setVenue({ workspaceId, widthFt: null, heightFt: null });
+    setVenueWInput(null);
+    setVenueHInput(null);
   }
 
   function handleResetAll() {
@@ -246,11 +299,34 @@ export default function SeatingPage() {
 
           <button
             onClick={() => handleAddTable('rectangular')}
-            className="btn btn-secondary w-full text-sm px-3 py-2 mb-3 flex items-center justify-center gap-2"
+            className="btn btn-secondary w-full text-sm px-3 py-2 mb-2 flex items-center justify-center gap-2"
           >
             Add
             <TableShapeIcon shape="rectangular" />
           </button>
+
+          {/* Add object — decorative / non-seating items */}
+          <div className="relative mb-3" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setObjectMenuOpen(o => !o)}
+              className="btn btn-secondary w-full text-sm px-3 py-2"
+            >
+              Add object ▾
+            </button>
+            {objectMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-rule rounded-lg shadow-lg z-50 overflow-hidden">
+                {OBJECT_PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    onClick={() => handleAddObject(p)}
+                    className="block w-full text-left px-3 py-2 text-sm text-ink hover:bg-bg-tint border-b last:border-0 border-rule transition-colors"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Template picker */}
           <div className="relative" onClick={e => e.stopPropagation()}>
@@ -332,6 +408,32 @@ export default function SeatingPage() {
             )}
           </div>
 
+          {/* Venue size — draws a to-scale boundary the canvas zooms to fit */}
+          <div className="mt-3 pt-3 border-t border-rule" onClick={e => e.stopPropagation()}>
+            <p className="text-xs font-medium text-ink-faint mb-1.5 px-1">Venue size (ft)</p>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <input
+                type="number" min={5} placeholder="W"
+                value={wVal}
+                onChange={e => setVenueWInput(e.target.value)}
+                className="app-input w-full text-xs px-2 py-1.5 tabular-nums"
+              />
+              <span className="text-ink-faint text-xs">×</span>
+              <input
+                type="number" min={5} placeholder="H"
+                value={hVal}
+                onChange={e => setVenueHInput(e.target.value)}
+                className="app-input w-full text-xs px-2 py-1.5 tabular-nums"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={applyVenue} className="btn btn-secondary text-xs px-2 py-1.5 flex-1">Set venue</button>
+              {venueW != null && (
+                <button onClick={clearVenue} className="text-xs text-ink-faint hover:text-red-600 transition-colors">Clear</button>
+              )}
+            </div>
+          </div>
+
           {/* Start over — pinned to the bottom */}
           <button
             onClick={handleResetAll}
@@ -354,6 +456,8 @@ export default function SeatingPage() {
           selectedTableId={selectedTableId}
           onSelectTable={setSelectedTableId}
           onSizeChange={(w, h) => setCanvasSize({ width: w, height: h })}
+          venueWidthFt={venueW}
+          venueHeightFt={venueH}
           editLabel={editLabel}
           editSeatCount={editSeatCount}
           onEditLabel={setEditLabel}

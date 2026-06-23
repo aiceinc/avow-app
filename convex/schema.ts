@@ -34,6 +34,10 @@ export default defineSchema({
     // Stripe customer for this workspace's billing (v1.11.0). Created on first
     // checkout, reused thereafter (and for the customer portal).
     stripeCustomerId: v.optional(v.string()),
+    // Venue floor-plan dimensions in feet (seating planner, v1.17.0). When set,
+    // the canvas draws a to-scale boundary and zooms to fit it.
+    venueWidthFt: v.optional(v.number()),
+    venueHeightFt: v.optional(v.number()),
   }),
 
   // ── Subscriptions (Stripe billing, v1.11.0) ───────────────────────────────
@@ -115,6 +119,10 @@ export default defineSchema({
     y: v.number(),
     rotation: v.number(),
     label: v.optional(v.string()),
+    // 'seating' (default when absent) = a guest table with seats; 'object' = a
+    // decorative / non-seating item (cake table, dance floor, stage, …) — no
+    // seats or placemats, not a guest drop target. (v1.17.0)
+    kind: v.optional(v.union(v.literal("seating"), v.literal("object"))),
     // Optional per-table dimensions (set when a table is resized).
     // When absent, the canvas falls back to the default constants in geometry.ts.
     radius: v.optional(v.number()), // round tables
