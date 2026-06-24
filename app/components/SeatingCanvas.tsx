@@ -45,6 +45,7 @@ type ClipboardTable = {
   width?:     number;
   height?:    number;
   kind?:      'seating' | 'object';
+  objectKind?: string;
 };
 
 // ── Colour palette ─────────────────────────────────────────────────────────────
@@ -172,10 +173,6 @@ function TableNode({
                     : isObject ? C.objectStroke
                     : C.tableStroke;
   const bodyFill    = isObject ? C.objectFill : C.tableFill;
-  // Icon size for objects — scaled to fit the object's footprint.
-  const objIconSize = isObject
-    ? Math.max(20, Math.min(52, (table.shape === 'round' ? getRadius(table) * 2 : Math.min(getWidth(table), getHeight(table))) * 0.55))
-    : 0;
   const strokeWidth = (active || isSelected) ? 2 : 1.5;
   const dash        = active ? ([5, 3] as number[]) : undefined;
 
@@ -183,10 +180,10 @@ function TableNode({
   const w = getWidth(dims);
   const h = getHeight(dims);
 
-  // Real-world dimension readout (diameter for round, W × H for rectangular).
-  const dimLabel = table.shape === 'round'
-    ? `⌀ ${pxToFeetLabel(2 * r)} ft`
-    : `${pxToFeetLabel(w)} × ${pxToFeetLabel(h)} ft`;
+  // Icon size for objects — scaled to fit the object's (live) footprint.
+  const objIconSize = isObject
+    ? Math.max(20, Math.min(52, (table.shape === 'round' ? r * 2 : Math.min(w, h)) * 0.55))
+    : 0;
 
   // Resize handle positions, in the table's local (pre-rotation) frame. Round =
   // edge midpoints; rectangular = corners (the opposite corner stays fixed).
@@ -225,29 +222,22 @@ function TableNode({
         return <Placemat key={`pm-${i}`} x={p.x} y={p.y} rotation={p.rotation} />;
       })}
 
-      {/* Labels — counter-rotated so they stay upright when the table is rotated.
-          Objects show their symbol instead of a text label. */}
-      <Group rotation={-rotation} listening={false}>
-        {isObject ? (
-          <KonvaObjectIcon kind={table.objectKind ?? 'object'} size={objIconSize} />
-        ) : table.label ? (
+      {/* Object symbol — rotates with the object */}
+      {isObject && (
+        <KonvaObjectIcon kind={table.objectKind ?? 'object'} size={objIconSize} />
+      )}
+
+      {/* Table label — counter-rotated so it stays upright when the table is rotated.
+          (Live dimensions now live in the floating edit panel, not on the canvas.) */}
+      {!isObject && table.label && (
+        <Group rotation={-rotation} listening={false}>
           <Text
             text={table.label} x={-60} y={-9} width={120}
             align="center" fontSize={11} fill={C.labelText}
             fontFamily="system-ui, sans-serif" listening={false}
           />
-        ) : null}
-
-        {/* Live dimensions — visible while the table is selected, updated during
-            resize, hidden once you click away. */}
-        {isSelected ? (
-          <Text
-            text={dimLabel} x={-60} y={isObject ? objIconSize / 2 + 3 : (table.label ? 7 : -5)} width={120}
-            align="center" fontSize={10} fill={C.tableStrokeSelect}
-            fontFamily="system-ui, sans-serif" listening={false}
-          />
-        ) : null}
-      </Group>
+        </Group>
+      )}
 
       {/* Seats */}
       {Array.from({ length: table.seatCount }, (_, i) => {
@@ -365,12 +355,18 @@ function KonvaObjectIcon({ kind, size }: { kind: string; size: number }) {
         <Path data="M16 6.5l2.5-1.6" {...base} />
         {dot(19, 4.4, 0.9)}
       </>); break;
-    case 'stage': // Podium / lectern
+    case 'stage': // Raised stage platform with front steps
       shapes = (<>
-        <Path data="M7.5 6h9v1.6l-1 1H8.5l-1-1z" {...base} />
-        <Path data="M9 8.6h6l-1.3 7.4h-3.4z" {...base} />
-        <Path data="M10 16h4l1 3h-6z" {...base} />
-        <Path data="M7 19.5h10" {...base} />
+        <Rect x={3} y={8.5} width={18} height={4} cornerRadius={0.5} {...base} />
+        <Rect x={6.5} y={12.5} width={11} height={3.2} {...base} />
+        <Rect x={9.5} y={15.7} width={5} height={3.2} {...base} />
+      </>); break;
+    case 'altar': // Wedding arch / altar
+      shapes = (<>
+        <Path data="M5.5 20V9.5" {...base} />
+        <Path data="M18.5 20V9.5" {...base} />
+        <Path data="M5.5 9.5C5.5 5.9 8.4 3.5 12 3.5s6.5 2.4 6.5 6" {...base} />
+        <Path data="M4 20h16" {...base} />
       </>); break;
     case 'dancefloor': // Disco ball
       shapes = (<>
@@ -383,18 +379,20 @@ function KonvaObjectIcon({ kind, size }: { kind: string; size: number }) {
         <Path data="M5 13H19" {...base} />
         <Path data="M5.7 16H18.3" {...base} />
       </>); break;
-    case 'djband': // DJ turntable
+    case 'djband': // DJ deck — two record platters with dials below
       shapes = (<>
-        <Rect x={3} y={5.5} width={18} height={13} cornerRadius={2} {...base} />
-        <Circle x={10} y={12} radius={4.3} {...base} />
-        {dot(10, 12, 0.9)}
-        <Path data="M18.5 7.5l-4.8 3.1" {...base} />
-        {dot(18.7, 7.3, 0.9)}
+        <Rect x={2.5} y={5} width={19} height={14} cornerRadius={1.5} {...base} />
+        <Circle x={7.5} y={10.5} radius={3.1} {...base} />
+        {dot(7.5, 10.5, 0.7)}
+        <Circle x={16.5} y={10.5} radius={3.1} {...base} />
+        {dot(16.5, 10.5, 0.7)}
+        <Circle x={6} y={16} radius={1} {...base} />
+        <Circle x={12} y={16} radius={1} {...base} />
+        <Circle x={18} y={16} radius={1} {...base} />
       </>); break;
-    default:
+    default: // Generic object — plain square
       shapes = (<>
         <Rect x={5} y={5} width={14} height={14} cornerRadius={2} {...base} />
-        <Circle x={12} y={12} radius={2.5} {...base} />
       </>); break;
   }
   return (
@@ -443,7 +441,7 @@ function PreviewTable({
  * In rotate mode the Rotate button turns blue and shows "Drag to rotate".
  */
 function FloatingEditPanel({
-  table, liveDragX, liveDragY, canvasW, canvasH, scale, offsetX, offsetY, isObject,
+  table, liveDragX, liveDragY, canvasW, canvasH, scale, offsetX, offsetY, isObject, dimLabel,
   label, seatCount, rotateMode, resizeMode,
   onLabel, onSeatCount, onToggleRotate, onToggleResize, onCopy, onCommitLabel, onCommitSeatCount, onDelete, onClose,
 }: {
@@ -456,6 +454,7 @@ function FloatingEditPanel({
   offsetX:            number;
   offsetY:            number;
   isObject:           boolean;
+  dimLabel:           string;
   label:              string;
   seatCount:          number;
   rotateMode:         boolean;
@@ -471,7 +470,7 @@ function FloatingEditPanel({
   onClose:            () => void;
 }) {
   const POPUP_W = 165;
-  const POPUP_H = 222; // approximate height for clamping
+  const POPUP_H = 250; // approximate height for clamping
 
   // Follow the table during a drag (world coords)
   const cx = liveDragX ?? table.x;
@@ -508,6 +507,12 @@ function FloatingEditPanel({
           className="text-xs font-medium border-0 border-b border-rule focus:outline-none focus:border-accent bg-transparent w-full mr-2 pb-0.5 text-ink"
         />
         <button onClick={onClose} className="text-ink-faint hover:text-ink-soft text-xs shrink-0 transition-colors">✕</button>
+      </div>
+
+      {/* Size — real-world dimensions; updates live during a resize drag */}
+      <div className="flex items-center justify-between text-xs text-ink-soft mb-2.5">
+        <span>Size</span>
+        <span className="font-medium text-ink tabular-nums">{dimLabel}</span>
       </div>
 
       {/* Seat count — stepper (hidden for decorative objects) */}
@@ -583,6 +588,7 @@ function FloatingEditPanel({
 
 type Props = {
   workspaceId:        Id<'workspaces'>;
+  activeLayoutId?:    Id<'seatingLayouts'>;
   tables:             Doc<'tables'>[];
   guests:             Doc<'guests'>[];
   assignments:        Doc<'seatAssignments'>[];
@@ -609,6 +615,7 @@ type Props = {
 
 export default function SeatingCanvas({
   workspaceId,
+  activeLayoutId,
   tables,
   guests,
   assignments,
@@ -758,6 +765,11 @@ export default function SeatingCanvas({
   // Latest pointer position over the canvas (used to seat the ghost on copy).
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Set true at the end of a rotate/resize drag so the trailing `click` event
+  // doesn't deselect the table (which would clear the live override and flash the
+  // table back to its old size/rotation before the commit lands).
+  const justDraggedRef = useRef(false);
+
   // Copy the selected table's shape/size/seats/rotation, then enter placement
   // mode: a translucent ghost follows the cursor until the user clicks to drop.
   const copySelectedTable = useCallback(() => {
@@ -771,6 +783,7 @@ export default function SeatingCanvas({
       width: t.width,
       height: t.height,
       kind: t.kind,
+      objectKind: t.objectKind,
     });
     setGhostPos(lastPointerRef.current ?? { x: t.x, y: t.y });
     setPlacing(true);
@@ -782,22 +795,25 @@ export default function SeatingCanvas({
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!placing || !clipboard) return;
       const { x, y } = toWorld(e.clientX, e.clientY);
+      const isObj = clipboard.kind === 'object';
       createTable({
         workspaceId,
+        ...(activeLayoutId ? { layoutId: activeLayoutId } : {}),
         shape: clipboard.shape,
         seatCount: clipboard.seatCount,
         x: Math.round(x),
         y: Math.round(y),
         rotation: clipboard.rotation,
-        label: `Table ${tables.length + 1}`,
+        label: isObj ? undefined : `Table ${tables.length + 1}`,
         ...(clipboard.kind ? { kind: clipboard.kind } : {}),
+        ...(clipboard.objectKind ? { objectKind: clipboard.objectKind } : {}),
         ...(clipboard.radius != null ? { radius: clipboard.radius } : {}),
         ...(clipboard.width  != null ? { width:  clipboard.width }  : {}),
         ...(clipboard.height != null ? { height: clipboard.height } : {}),
       });
       setPlacing(false);
     },
-    [placing, clipboard, createTable, workspaceId, tables.length, toWorld]
+    [placing, clipboard, createTable, workspaceId, activeLayoutId, tables.length, toWorld]
   );
 
   // Escape cancels placement without creating a table.
@@ -819,12 +835,16 @@ export default function SeatingCanvas({
       const angle = getAngleDeg(table.x, table.y, wpt.x, wpt.y);
       const delta = angle - rotateRef.current.startAngle;
       const rot   = ((rotateRef.current.baseRotation + delta) % 360 + 360) % 360;
+      // Keep the ref in sync synchronously so the mouseup commit always sees the
+      // latest rotation, even if React hasn't flushed the state-sync effect yet.
+      liveRotationRef.current = rot;
       setLiveRotation(rot);
     }
 
     function onUp() {
       if (!rotateRef.current) return;
       rotateRef.current = null;
+      justDraggedRef.current = true;
       const table = selectedTableRef.current;
       const rot   = liveRotationRef.current;
       if (table && rot !== null) {
@@ -886,6 +906,7 @@ export default function SeatingCanvas({
       if (!resizeRef.current) return;
       const wasCorner = !('round' in resizeRef.current);
       resizeRef.current = null;
+      justDraggedRef.current = true;
       const table  = selectedTableRef.current;
       const size   = liveSizeRef.current;
       const center = liveCenterRef.current;
@@ -914,6 +935,7 @@ export default function SeatingCanvas({
   // Start a rotation or resize drag when the user mousedowns on/near the table
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      justDraggedRef.current = false;
       if (!selectedTable) return;
       const { x: mx, y: my } = toWorld(e.clientX, e.clientY);
 
@@ -1114,7 +1136,11 @@ export default function SeatingCanvas({
         scaleY={scale}
         x={offsetX}
         y={offsetY}
-        onClick={() => { if (!placing) onSelectTable(null); }}
+        onClick={() => {
+          // Swallow the click that ends a rotate/resize drag so it doesn't deselect.
+          if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+          if (!placing) onSelectTable(null);
+        }}
       >
         {/* Venue boundary — drawn to scale, with draggable edge handles.
             Guarded on a finite, positive scale so the handles never render with
@@ -1265,6 +1291,12 @@ export default function SeatingCanvas({
           offsetX={offsetX}
           offsetY={offsetY}
           isObject={selectedTable.kind === 'object'}
+          dimLabel={(() => {
+            const d = dimsFor(selectedTable);
+            return selectedTable.shape === 'round'
+              ? `⌀ ${pxToFeetLabel(2 * getRadius(d))} ft`
+              : `${pxToFeetLabel(getWidth(d))} × ${pxToFeetLabel(getHeight(d))} ft`;
+          })()}
           label={editLabel}
           seatCount={editSeatCount}
           rotateMode={rotateMode}

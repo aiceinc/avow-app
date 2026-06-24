@@ -27,5 +27,6 @@ export const OBJECT_PRESETS: ObjectPreset[] = [
   { key: 'stage',      label: 'Stage',        group: 'feature', shape: 'rectangular', width: 300, height: 95 },
   { key: 'dancefloor', label: 'Dance Floor',  group: 'feature', shape: 'rectangular', width: 280, height: 240 },
   { key: 'djband',     label: 'DJ/Band Area', group: 'feature', shape: 'rectangular', width: 180, height: 120 },
+  { key: 'altar',      label: 'Altar',        group: 'feature', shape: 'rectangular', width: 120, height: 50 },
   { key: 'object',     label: 'Object',       group: 'other',   shape: 'rectangular', width: 120, height: 80 },
 ];

@@ -31,11 +31,14 @@ export function pxToFeetLabel(px: number): string {
 }
 
 // ── Resize clamps ───────────────────────────────────────────────────────────
-export const MIN_RADIUS = 34;
+// Minimums are 2 ft (= 2 × PX_PER_FOOT): a 2 ft min diameter for round shapes
+// (radius ≥ 1 ft) and a 2 ft × 2 ft floor for rectangular ones. Applies to guest
+// tables and to decorative objects/features alike.
+export const MIN_RADIUS = PX_PER_FOOT;       // 1 ft radius → 2 ft diameter
 export const MAX_RADIUS = 150;
-export const MIN_RECT_W = 90;
+export const MIN_RECT_W = 2 * PX_PER_FOOT;   // 2 ft
 export const MAX_RECT_W = 460;
-export const MIN_RECT_H = 50;
+export const MIN_RECT_H = 2 * PX_PER_FOOT;   // 2 ft
 export const MAX_RECT_H = 320;
 
 // ── Types ─────────────────────────────────────────────────────────────────────

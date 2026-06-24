@@ -516,6 +516,7 @@ export default function SeatingPage() {
 
           <SeatingCanvas
             workspaceId={workspaceId}
+            activeLayoutId={(activeLayoutId ?? undefined) as Id<'seatingLayouts'> | undefined}
             tables={tables}
             guests={guests}
             assignments={assignments}

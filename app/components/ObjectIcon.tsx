@@ -53,13 +53,22 @@ export default function ObjectIcon({ name, size = 20 }: { name: string; size?: n
         </svg>
       );
     case 'stage':
-      // Podium / lectern
+      // Raised stage platform with front steps
       return (
         <svg {...p} aria-hidden>
-          <path d="M7.5 6h9v1.6l-1 1H8.5l-1-1z" />
-          <path d="M9 8.6h6l-1.3 7.4h-3.4z" />
-          <path d="M10 16h4l1 3h-6z" />
-          <path d="M7 19.5h10" />
+          <rect x="3" y="8.5" width="18" height="4" rx="0.5" />
+          <rect x="6.5" y="12.5" width="11" height="3.2" />
+          <rect x="9.5" y="15.7" width="5" height="3.2" />
+        </svg>
+      );
+    case 'altar':
+      // Wedding arch / altar
+      return (
+        <svg {...p} aria-hidden>
+          <path d="M5.5 20V9.5" />
+          <path d="M18.5 20V9.5" />
+          <path d="M5.5 9.5C5.5 5.9 8.4 3.5 12 3.5s6.5 2.4 6.5 6" />
+          <path d="M4 20h16" />
         </svg>
       );
     case 'dancefloor':
@@ -77,21 +86,24 @@ export default function ObjectIcon({ name, size = 20 }: { name: string; size?: n
         </svg>
       );
     case 'djband':
-      // DJ turntable
+      // DJ deck — two record platters with dials below
       return (
         <svg {...p} aria-hidden>
-          <rect x="3" y="5.5" width="18" height="13" rx="2" />
-          <circle cx="10" cy="12" r="4.3" />
-          <circle cx="10" cy="12" r="0.9" fill="currentColor" stroke="none" />
-          <path d="M18.5 7.5l-4.8 3.1" />
-          <circle cx="18.7" cy="7.3" r="0.9" fill="currentColor" stroke="none" />
+          <rect x="2.5" y="5" width="19" height="14" rx="1.5" />
+          <circle cx="7.5" cy="10.5" r="3.1" />
+          <circle cx="7.5" cy="10.5" r="0.7" fill="currentColor" stroke="none" />
+          <circle cx="16.5" cy="10.5" r="3.1" />
+          <circle cx="16.5" cy="10.5" r="0.7" fill="currentColor" stroke="none" />
+          <circle cx="6" cy="16" r="1" />
+          <circle cx="12" cy="16" r="1" />
+          <circle cx="18" cy="16" r="1" />
         </svg>
       );
     default:
+      // Generic object — plain square
       return (
         <svg {...p} aria-hidden>
           <rect x="5" y="5" width="14" height="14" rx="2" />
-          <circle cx="12" cy="12" r="2.5" />
         </svg>
       );
   }
