@@ -19,12 +19,17 @@ import { errorMessage } from '@/app/lib/errors';
 const STORAGE_KEY = 'avow:workspaceId';
 
 export default function AppToolbar() {
-  const { workspaceId, workspaceName } = useWorkspace();
+  const { workspaceId, workspaceName, entitlement } = useWorkspace();
 
   const tables      = useQuery(api.tables.list,          { workspaceId }) ?? [];
   const guests      = useQuery(api.guests.list,          { workspaceId }) ?? [];
   const assignments = useQuery(api.seatAssignments.list, { workspaceId }) ?? [];
   const myWorkspaces = useQuery(api.workspaces.listMine) ?? [];
+
+  // The couple tier covers a single wedding, so there's nothing to switch
+  // between — hide the switcher unless they've actually been added to another
+  // workspace (planner tiers always keep it, to manage + add weddings).
+  const showWorkspaceSwitcher = !(entitlement.tier === 'couple' && myWorkspaces.length <= 1);
 
   const generateInvite = useMutation(api.workspaces.generateInvite);
   const createWorkspace = useMutation(api.workspaces.create);
@@ -125,7 +130,8 @@ export default function AppToolbar() {
             {assignments.length} seated
           </div>
 
-          {/* Switch workspace — hover dropdown */}
+          {/* Switch workspace — hover dropdown (hidden for single-workspace couples) */}
+          {showWorkspaceSwitcher && (
           <div className="relative group">
             <button className="flex items-center gap-1 text-xs text-bg/60 hover:text-bg transition-colors">
               Switch workspace
@@ -160,6 +166,7 @@ export default function AppToolbar() {
               </div>
             </div>
           </div>
+          )}
 
           <Link
             href="/account"

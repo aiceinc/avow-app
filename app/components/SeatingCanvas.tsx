@@ -444,7 +444,7 @@ function PreviewTable({
 function FloatingEditPanel({
   table, liveDragX, liveDragY, canvasW, canvasH, scale, offsetX, offsetY, isObject, dimLabel,
   label, seatCount, rotateMode, resizeMode,
-  onLabel, onSeatCount, onToggleRotate, onToggleResize, onRotateLeft, onRotateRight, onCopy, onCommitLabel, onCommitSeatCount, onDelete, onClose,
+  onLabel, onSeatCount, onToggleRotate, onToggleResize, onCopy, onCommitLabel, onCommitSeatCount, onDelete, onClose,
 }: {
   table:              Doc<'tables'>;
   liveDragX?:         number;
@@ -464,21 +464,14 @@ function FloatingEditPanel({
   onSeatCount:        (v: number) => void;
   onToggleRotate:     () => void;
   onToggleResize:     () => void;
-  onRotateLeft:       () => void;
-  onRotateRight:      () => void;
   onCopy:             () => void;
   onCommitLabel:      () => void;
   onCommitSeatCount:  (n: number) => void;
   onDelete:           () => void;
   onClose:            () => void;
 }) {
-  // The ±90° quick-rotate buttons drop down on hover, or stay open while rotate
-  // mode is active; they slide away otherwise.
-  const [rotateHover, setRotateHover] = useState(false);
-  const quarterOpen = rotateHover || rotateMode;
-
   const POPUP_W = 165;
-  const POPUP_H = quarterOpen ? 296 : 250; // approximate height for clamping
+  const POPUP_H = 250; // approximate height for clamping
 
   // Follow the table during a drag (world coords)
   const cx = liveDragX ?? table.x;
@@ -549,59 +542,28 @@ function FloatingEditPanel({
         </div>
       )}
 
-      {/* Rotate (blue, matches crosshair) + Resize (gold, matches handles) — side by side.
-          Hovering Rotate (or entering rotate mode) drops down ±90° quick-rotate buttons. */}
-      <div
-        className="mb-2.5"
-        onMouseEnter={() => setRotateHover(true)}
-        onMouseLeave={() => setRotateHover(false)}
-      >
-        <div className="flex gap-2">
-          <button
-            onClick={onToggleRotate}
-            className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
-              rotateMode
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
-            }`}
-          >
-            ↺  Rotate
-          </button>
-          <button
-            onClick={onToggleResize}
-            className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
-              resizeMode
-                ? 'bg-accent border-accent text-white'
-                : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
-            }`}
-          >
-            ⤡  Resize
-          </button>
-        </div>
-
-        {/* Quarter-turn buttons — slide down on hover / while rotate mode is active */}
-        <div
-          className={`overflow-hidden transition-all duration-200 ease-out ${
-            quarterOpen ? 'max-h-12 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'
+      {/* Rotate (blue, matches crosshair) + Resize (gold, matches handles) — side by side */}
+      <div className="flex gap-2 mb-2.5">
+        <button
+          onClick={onToggleRotate}
+          className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+            rotateMode
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
           }`}
         >
-          <div className="flex gap-2">
-            <button
-              onClick={onRotateLeft}
-              title="Rotate 90° left"
-              className="flex-1 text-xs py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              ↺  90°
-            </button>
-            <button
-              onClick={onRotateRight}
-              title="Rotate 90° right"
-              className="flex-1 text-xs py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              90°  ↻
-            </button>
-          </div>
-        </div>
+          ↺  Rotate
+        </button>
+        <button
+          onClick={onToggleResize}
+          className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+            resizeMode
+              ? 'bg-accent border-accent text-white'
+              : 'border-rule text-ink-soft hover:bg-bg-tint hover:border-accent'
+          }`}
+        >
+          ⤡  Resize
+        </button>
       </div>
 
       {/* Copy → place a duplicate (a ghost follows the cursor until you click) */}
@@ -821,18 +783,6 @@ export default function SeatingCanvas({
     rotateRef.current = null;
     setResizeMode(r => !r);
   }, []);
-
-  // Quarter-turn buttons: rotate the selected table by ±90° from its current
-  // angle and commit immediately (optimistic update makes it instant).
-  const rotateBy = useCallback((deg: number) => {
-    const t = selectedTableRef.current;
-    if (!t) return;
-    const base = liveRotationRef.current ?? t.rotation;
-    const next = (((Math.round(base) + deg) % 360) + 360) % 360;
-    liveRotationRef.current = next;
-    setLiveRotation(next);
-    updateTable({ tableId: t._id, rotation: next });
-  }, [updateTable]);
 
   // Latest pointer position over the canvas (used to seat the ghost on copy).
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
@@ -1401,8 +1351,6 @@ export default function SeatingCanvas({
           onSeatCount={onEditSeatCount}
           onToggleRotate={toggleRotate}
           onToggleResize={toggleResize}
-          onRotateLeft={() => rotateBy(-90)}
-          onRotateRight={() => rotateBy(90)}
           onCopy={copySelectedTable}
           onCommitLabel={onCommitLabel}
           onCommitSeatCount={onCommitSeatCount}
