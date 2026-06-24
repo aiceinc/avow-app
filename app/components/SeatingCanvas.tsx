@@ -14,7 +14,7 @@
  *     the centre point and a dashed rotation ring.
  */
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Stage, Layer, Circle, Rect, Text, Group, Arrow, Line, Path } from 'react-konva';
 import { useMutation, useQuery } from 'convex/react';
 import { useConvexAuth } from '@convex-dev/auth/react';
@@ -748,17 +748,23 @@ export default function SeatingCanvas({
   // (move/rotate/resize/etc.) so the table never flashes back to its old state
   // while the server round-trips. Without this, clearing the live drag override
   // before the mutation confirms makes the table appear to "snap back".
-  const updateTable = useMutation(api.tables.update).withOptimisticUpdate(
-    (store, args) => {
-      const existing = store.getQuery(api.tables.list, { workspaceId });
-      if (!existing) return;
-      const { tableId, ...fields } = args;
-      store.setQuery(
-        api.tables.list,
-        { workspaceId },
-        existing.map(t => (t._id === tableId ? { ...t, ...fields } : t))
-      );
-    }
+  const baseUpdateTable = useMutation(api.tables.update);
+  // Memoised so its identity is stable across renders — otherwise the rotate /
+  // resize effects (which depend on it) would tear down and re-add their window
+  // listeners on every drag frame.
+  const updateTable = useMemo(
+    () =>
+      baseUpdateTable.withOptimisticUpdate((store, args) => {
+        const existing = store.getQuery(api.tables.list, { workspaceId });
+        if (!existing) return;
+        const { tableId, ...fields } = args;
+        store.setQuery(
+          api.tables.list,
+          { workspaceId },
+          existing.map(t => (t._id === tableId ? { ...t, ...fields } : t))
+        );
+      }),
+    [baseUpdateTable, workspaceId]
   );
   const createTable = useMutation(api.tables.create);
 

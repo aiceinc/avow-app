@@ -16,7 +16,6 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '@/convex/_generated/api';
 import { PRIVACY_CONTACT_EMAIL } from '@/app/lib/config';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
-import AppFooter from '@/app/components/AppFooter';
 import { errorMessage } from '@/app/lib/errors';
 import {
   TIERS,
@@ -150,7 +149,6 @@ export default function AccountPage() {
           .
         </p>
       </div>
-      <AppFooter />
       </div>
     </div>
   );

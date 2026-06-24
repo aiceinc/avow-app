@@ -27,6 +27,7 @@ import { derivePartnerNames } from '@/app/lib/guests';
 import AppToolbar from '@/app/components/AppToolbar';
 import ModuleTabs from '@/app/components/ModuleTabs';
 import BillingBanner from '@/app/components/BillingBanner';
+import AppFooter from '@/app/components/AppFooter';
 import { isTier } from '@/convex/billingConfig';
 
 const STORAGE_KEY = 'avow:workspaceId';
@@ -144,6 +145,8 @@ function AppShell({
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           {children}
         </div>
+        {/* Pinned to the bottom of the window across every app route */}
+        <AppFooter />
       </div>
     </WorkspaceContext.Provider>
   );

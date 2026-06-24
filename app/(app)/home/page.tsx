@@ -23,7 +23,6 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Doc } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
-import AppFooter from '@/app/components/AppFooter';
 import { rsvpStatusOf } from '@/app/lib/guests';
 import { sumTotals, formatMoney } from '@/app/lib/budget';
 import { statusOf } from '@/app/lib/vendors';
@@ -197,7 +196,6 @@ export default function HomePage() {
         </div>
 
       </div>
-      <AppFooter />
       </div>
     </div>
 

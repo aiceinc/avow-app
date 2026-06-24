@@ -8,14 +8,14 @@ import Link from 'next/link';
  */
 export default function AppFooter() {
   return (
-    <footer className="bg-ink px-6 sm:px-10 py-7 flex items-center justify-between gap-4 shrink-0">
-      <span className="wordmark text-base" style={{ color: 'rgba(250, 246, 240, 0.5)' }}>
+    <footer className="bg-ink px-6 sm:px-10 py-3 flex items-center justify-between gap-4 shrink-0">
+      <span className="wordmark text-sm" style={{ color: 'rgba(250, 246, 240, 0.5)' }}>
         avow<span className="dot" />
       </span>
       <div className="flex items-center gap-7">
         <Link href="/privacy" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Privacy</Link>
         <a href="mailto:hello@avow.wedding" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Contact</a>
-        <span className="text-xs tracking-wide text-bg/30">v1.20.1 · © 2026 AICE Inc.</span>
+        <span className="text-xs tracking-wide text-bg/30">v1.21.0 · © 2026 AICE Inc.</span>
       </div>
     </footer>
   );
