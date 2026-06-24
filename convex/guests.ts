@@ -147,13 +147,15 @@ export const remove = mutation({
     if (!guest) throw new ConvexError("Guest not found");
     await assertCanEdit(ctx, guest.workspaceId);
 
-    // Remove the guest's seat assignment first, if any.
-    const assignment = await ctx.db
+    // Remove every seat assignment the guest holds first. Since v1.18.0 a guest
+    // can be seated once PER LAYOUT, so there may be more than one — `.unique()`
+    // would throw. Delete them all so no phantom seats are left behind.
+    const assignments = await ctx.db
       .query("seatAssignments")
       .withIndex("by_guestId", (q) => q.eq("guestId", args.guestId))
-      .unique();
-    if (assignment !== null) {
-      await ctx.db.delete(assignment._id);
+      .take(100);
+    for (const a of assignments) {
+      await ctx.db.delete(a._id);
     }
 
     await ctx.db.delete(args.guestId);

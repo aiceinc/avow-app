@@ -19,6 +19,7 @@ import { api } from '@/convex/_generated/api';
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import ConfirmModal from '@/app/components/ConfirmModal';
+import FilterPill from '@/app/components/FilterPill';
 import VendorFormModal, { VendorFormValues } from '@/app/components/VendorFormModal';
 import { VendorStatus, VENDOR_STATUS_OPTIONS, statusOf, vendorStatusStyle } from '@/app/lib/vendors';
 import { formatMoney } from '@/app/lib/budget';
@@ -33,7 +34,8 @@ export default function VendorsPage() {
 
   const vendors    = useQuery(api.vendors.listVendors,   { workspaceId });
   const categories = useQuery(api.vendors.listCategories, { workspaceId });
-  const lineItems  = useQuery(api.budget.listLineItems,  { workspaceId }) ?? [];
+  const lineItemsQ = useQuery(api.budget.listLineItems,  { workspaceId });
+  const lineItems  = useMemo(() => lineItemsQ ?? [], [lineItemsQ]);
 
   const seedDefaults   = useMutation(api.vendors.seedDefaultCategories);
   const addCategory    = useMutation(api.vendors.addCategory);
@@ -443,27 +445,3 @@ function VendorRow({
   );
 }
 
-// ── Filter pill ───────────────────────────────────────────────────────────────
-
-function FilterPill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2 py-0.5 rounded-full border transition-colors ${
-        active
-          ? 'bg-accent border-accent text-white'
-          : 'border-rule text-ink-soft hover:border-accent'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

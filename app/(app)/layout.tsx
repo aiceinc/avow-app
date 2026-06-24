@@ -29,8 +29,7 @@ import ModuleTabs from '@/app/components/ModuleTabs';
 import BillingBanner from '@/app/components/BillingBanner';
 import AppFooter from '@/app/components/AppFooter';
 import { isTier } from '@/convex/billingConfig';
-
-const STORAGE_KEY = 'avow:workspaceId';
+import { WORKSPACE_STORAGE_KEY as STORAGE_KEY } from '@/app/lib/config';
 
 const LOADING_ENTITLEMENT: Entitlement = {
   status: 'loading',

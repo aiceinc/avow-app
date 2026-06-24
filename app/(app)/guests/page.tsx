@@ -18,6 +18,7 @@ import { Doc } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { guestCapFor } from '@/convex/billingConfig';
 import ConfirmModal from '@/app/components/ConfirmModal';
+import FilterPill from '@/app/components/FilterPill';
 import GuestFormModal, { GuestFormValues } from '@/app/components/GuestFormModal';
 import {
   sideBadgeClasses,
@@ -36,9 +37,12 @@ type SortKey = 'name-asc' | 'name-desc';
 export default function GuestsPage() {
   const { workspaceId, partnerNames, entitlement } = useWorkspace();
 
-  const guests      = useQuery(api.guests.list,          { workspaceId });
-  const assignments = useQuery(api.seatAssignments.list, { workspaceId }) ?? [];
-  const tables      = useQuery(api.tables.list,          { workspaceId }) ?? [];
+  const guests        = useQuery(api.guests.list,          { workspaceId });
+  const assignmentsQ  = useQuery(api.seatAssignments.list, { workspaceId });
+  const tablesQ       = useQuery(api.tables.list,          { workspaceId });
+  // Stable refs so the memos below don't recompute every render while loading.
+  const assignments = useMemo(() => assignmentsQ ?? [], [assignmentsQ]);
+  const tables      = useMemo(() => tablesQ      ?? [], [tablesQ]);
 
   const createGuest = useMutation(api.guests.create);
   const updateGuest = useMutation(api.guests.update);
@@ -318,27 +322,3 @@ function GuestRow({
   );
 }
 
-// ── Filter pill ───────────────────────────────────────────────────────────────
-
-function FilterPill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2 py-0.5 rounded-full border transition-colors ${
-        active
-          ? 'bg-accent border-accent text-white'
-          : 'border-rule text-ink-soft hover:border-accent'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

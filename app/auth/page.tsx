@@ -9,12 +9,11 @@
  * opened in a modal. Aesthetic uses Avow's existing palette + fonts (Fraunces /
  * Inter Tight, ink/bg/accent tokens) — NOT the mockup's.
  *
- * ⚠️ PRICING IS PRESENTATIONAL (v1). There is no billing backend yet (deferred —
- * no payment processor, gated on Brooke's subscription terms). Every trial /
- * plan CTA simply opens the SIGN-UP flow (create account); no card is collected
- * and no real subscription is created. The tiers/prices/trial copy are a
- * faithful first pass from the mockup and must be reconciled with the final
- * subscription terms (free tier, auto-renew, etc.) before taking real payments.
+ * Pricing is live (Stripe billing, test mode). A plan CTA stores the chosen plan
+ * (`pendingPlan`) and opens the SIGN-UP flow; after the workspace is created,
+ * /account picks it up and starts a real Stripe Checkout. Tiers/prices reflect
+ * the planner-first, no-trial model (Couple / Planner Pro / Planner Max). Still
+ * gated from PROD until the live Stripe account + final legal terms land.
  * The hero image is intentionally left blank for Ben to supply.
  */
 

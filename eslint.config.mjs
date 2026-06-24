@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Convex codegen — regenerated on every deploy; its eslint-disable directives
+    // become "unused" under our config, so don't lint it.
+    "convex/_generated/**",
   ]),
 ]);
 

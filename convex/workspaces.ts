@@ -130,27 +130,6 @@ export const create = mutation({
 });
 
 /**
- * Set (or clear) the venue floor-plan dimensions in feet for the seating planner.
- * Pass null for either to clear the venue boundary.
- */
-export const setVenue = mutation({
-  args: {
-    workspaceId: v.id("workspaces"),
-    widthFt: v.union(v.number(), v.null()),
-    heightFt: v.union(v.number(), v.null()),
-  },
-  handler: async (ctx, args) => {
-    await assertCanEdit(ctx, args.workspaceId);
-    await ctx.db.patch(args.workspaceId, {
-      venueWidthFt:
-        args.widthFt === null ? undefined : Math.min(500, Math.max(5, Math.round(args.widthFt))),
-      venueHeightFt:
-        args.heightFt === null ? undefined : Math.min(500, Math.max(5, Math.round(args.heightFt))),
-    });
-  },
-});
-
-/**
  * Generate a shareable invite link token for a workspace.
  * Only existing members can generate invites.
  * Only workspaces with fewer than 2 members can invite.
@@ -194,14 +173,15 @@ export const joinByInviteCode = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
 
-    // Find the workspace with this invite code
-    // We scan all workspaces — acceptable at prototype scale (at most a handful)
-    const workspaces = await ctx.db.query("workspaces").take(200);
-    const workspace = workspaces.find(
-      (w) =>
-        w.inviteCode === args.inviteCode.trim() &&
-        w.inviteCodeExpiry !== undefined &&
-        w.inviteCodeExpiry > Date.now()
+    // Look up the workspace by its invite code via the by_inviteCode index, then
+    // pick the one whose code is still valid (codes are random, collisions are
+    // vanishingly unlikely, but stay correct if one ever recurs).
+    const candidates = await ctx.db
+      .query("workspaces")
+      .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode.trim()))
+      .take(5);
+    const workspace = candidates.find(
+      (w) => w.inviteCodeExpiry !== undefined && w.inviteCodeExpiry > Date.now()
     );
 
     if (!workspace) {

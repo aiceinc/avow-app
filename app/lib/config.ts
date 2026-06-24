@@ -10,3 +10,10 @@
  */
 
 export const PRIVACY_CONTACT_EMAIL = 'privacy@avow.wedding';
+
+/**
+ * localStorage key for the user's last-selected workspace. The app shell
+ * (`(app)/layout.tsx`) reads it on load; the toolbar's workspace switcher and
+ * the new-wedding flow write it. Single source of truth so the two can't drift.
+ */
+export const WORKSPACE_STORAGE_KEY = 'avow:workspaceId';

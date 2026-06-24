@@ -34,11 +34,12 @@ export default defineSchema({
     // Stripe customer for this workspace's billing (v1.11.0). Created on first
     // checkout, reused thereafter (and for the customer portal).
     stripeCustomerId: v.optional(v.string()),
-    // Venue floor-plan dimensions in feet (seating planner, v1.17.0). When set,
-    // the canvas draws a to-scale boundary and zooms to fit it.
+    // Legacy venue floor-plan dimensions in feet (seating planner, v1.17.0).
+    // Superseded by per-layout venue dims on `seatingLayouts` (v1.18.0); retained
+    // only so `layouts.ensure` can migrate them onto the Dinner layout.
     venueWidthFt: v.optional(v.number()),
     venueHeightFt: v.optional(v.number()),
-  }),
+  }).index("by_inviteCode", ["inviteCode"]),
 
   // ── Subscriptions (Stripe billing, v1.11.0) ───────────────────────────────
   // One row per workspace mirroring its Stripe subscription state, kept in sync
@@ -50,7 +51,7 @@ export default defineSchema({
     stripeCustomerId: v.string(),
     stripeSubscriptionId: v.string(),
     status: v.string(),   // trialing | active | past_due | canceled | unpaid | incomplete | incomplete_expired | paused
-    tier: v.string(),     // standard | pro | planner
+    tier: v.string(),     // couple | planner_pro | planner_max (legacy rows: standard | pro | planner)
     interval: v.string(), // month | year
     currentPeriodEnd: v.optional(v.number()),  // unix seconds
     cancelAtPeriodEnd: v.optional(v.boolean()),

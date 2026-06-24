@@ -4,7 +4,7 @@
  * /invite?code=XXXXXXXX — workspace invite acceptance page
  */
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { errorMessage } from '@/app/lib/errors';
 import { useConvexAuth } from '@convex-dev/auth/react';
@@ -28,46 +28,39 @@ function InviteFlow() {
   const params = useSearchParams();
   const code = params.get('code') ?? '';
 
-  const [status, setStatus] = useState<'pending' | 'joining' | 'error'>('pending');
-  const [errorMsg, setErrorMsg] = useState('');
+  // The no-code error is knowable at render time; the join failure is set in the
+  // promise callback (not synchronously in the effect). A ref guards against
+  // re-joining if the effect re-runs.
+  const [errorMsg, setErrorMsg] = useState(() => (code ? '' : 'No invite code in the URL.'));
+  const joinedRef = useRef(false);
 
   useEffect(() => {
-    if (isLoading) return;
-
+    if (isLoading || !code || joinedRef.current) return;
     if (!isAuthenticated) {
       router.push(`/auth?redirect=/invite?code=${encodeURIComponent(code)}`);
       return;
     }
-
-    if (!code) {
-      setStatus('error');
-      setErrorMsg('No invite code in the URL.');
-      return;
-    }
-
-    setStatus('joining');
+    joinedRef.current = true;
     joinByInviteCode({ inviteCode: code })
       .then(() => router.push('/'))
-      .catch((err: unknown) => {
-        setStatus('error');
-        setErrorMsg(errorMessage(err, 'Could not join this wedding.'));
-      });
-  }, [isAuthenticated, isLoading, code]);
+      .catch((err: unknown) => setErrorMsg(errorMessage(err, 'Could not join this wedding.')));
+  }, [isAuthenticated, isLoading, code, joinByInviteCode, router]);
 
-  if (isLoading || status === 'pending') return <Centered>Checking invite…</Centered>;
-  if (status === 'joining')             return <Centered>Joining workspace…</Centered>;
-
-  return (
-    <Centered>
-      <p className="text-red-600 text-sm mb-4">{errorMsg}</p>
-      <button
-        onClick={() => router.push('/')}
-        className="text-sm text-ink-faint hover:text-ink-soft underline transition-colors"
-      >
-        Go to app
-      </button>
-    </Centered>
-  );
+  if (errorMsg) {
+    return (
+      <Centered>
+        <p className="text-red-600 text-sm mb-4">{errorMsg}</p>
+        <button
+          onClick={() => router.push('/')}
+          className="text-sm text-ink-faint hover:text-ink-soft underline transition-colors"
+        >
+          Go to app
+        </button>
+      </Centered>
+    );
+  }
+  if (isLoading || !isAuthenticated) return <Centered>Checking invite…</Centered>;
+  return <Centered>Joining workspace…</Centered>;
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

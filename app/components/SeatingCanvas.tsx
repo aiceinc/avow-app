@@ -507,7 +507,7 @@ function FloatingEditPanel({
           placeholder="Table name"
           className="text-xs font-medium border-0 border-b border-rule focus:outline-none focus:border-accent bg-transparent w-full mr-2 pb-0.5 text-ink"
         />
-        <button onClick={onClose} className="text-ink-faint hover:text-ink-soft text-xs shrink-0 transition-colors">✕</button>
+        <button onClick={onClose} aria-label="Close" className="text-ink-faint hover:text-ink-soft text-xs shrink-0 transition-colors">✕</button>
       </div>
 
       {/* Size — real-world dimensions; updates live during a resize drag */}
@@ -527,6 +527,7 @@ function FloatingEditPanel({
                 onSeatCount(n);
                 onCommitSeatCount(n);
               }}
+              aria-label="Remove a seat"
               className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
             >−</button>
             <span className="w-5 text-center font-medium text-ink tabular-nums">{seatCount}</span>
@@ -536,6 +537,7 @@ function FloatingEditPanel({
                 onSeatCount(n);
                 onCommitSeatCount(n);
               }}
+              aria-label="Add a seat"
               className="w-5 h-5 flex items-center justify-center rounded border border-rule text-ink-soft hover:bg-bg-tint hover:border-accent transition-colors leading-none select-none"
             >+</button>
           </div>
@@ -1038,24 +1040,30 @@ export default function SeatingCanvas({
   );
 
   // ── Build lookup maps ─────────────────────────────────────────────────────
+  // Memoised so they aren't rebuilt on every render (this component re-renders
+  // continuously during drags / cursor updates).
 
-  const guestMap = new Map(guests.map(g => [g._id as string, g]));
+  const guestMap = useMemo(
+    () => new Map(guests.map(g => [g._id as string, g])),
+    [guests]
+  );
 
-  const assignmentsByTable = new Map<string, Doc<'seatAssignments'>[]>();
-  for (const a of assignments) {
-    const arr = assignmentsByTable.get(a.tableId) ?? [];
-    arr.push(a);
-    assignmentsByTable.set(a.tableId, arr);
-  }
+  const assignmentsByTable = useMemo(() => {
+    const m = new Map<string, Doc<'seatAssignments'>[]>();
+    for (const a of assignments) {
+      const arr = m.get(a.tableId) ?? [];
+      arr.push(a);
+      m.set(a.tableId, arr);
+    }
+    return m;
+  }, [assignments]);
 
   // ── Live cursor broadcasting ───────────────────────────────────────────────
 
   const { isAuthenticated } = useConvexAuth();
-  const [myUserId, setMyUserId] = useState<string | null>(null);
   const meQuery = useQuery(api.workspaces.getMyUserId);
-  useEffect(() => {
-    if (meQuery?.userId) setMyUserId(meQuery.userId);
-  }, [meQuery]);
+  // Derived straight from the query — no need for separate state + an effect.
+  const myUserId = meQuery?.userId ?? null;
 
   const myLabel      = meQuery?.email ? meQuery.email.split('@')[0] : 'User';
   const upsertCursor = useMutation(api.cursors.upsert);

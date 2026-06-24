@@ -15,8 +15,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
 import { useWorkspace } from './WorkspaceContext';
 import { errorMessage } from '@/app/lib/errors';
-
-const STORAGE_KEY = 'avow:workspaceId';
+import { WORKSPACE_STORAGE_KEY as STORAGE_KEY } from '@/app/lib/config';
 
 export default function AppToolbar() {
   const { workspaceId, workspaceName, entitlement } = useWorkspace();

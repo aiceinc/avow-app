@@ -27,10 +27,13 @@ export default function BudgetPage() {
   const { workspaceId, entitlement } = useWorkspace();
   const canEdit = entitlement.canEdit;
 
-  const settings   = useQuery(api.budget.getSettings,    { workspaceId });
-  const categories = useQuery(api.budget.listCategories, { workspaceId });
-  const lineItems  = useQuery(api.budget.listLineItems,  { workspaceId }) ?? [];
-  const vendors    = useQuery(api.vendors.listVendors,   { workspaceId }) ?? [];
+  const settings    = useQuery(api.budget.getSettings,    { workspaceId });
+  const categories  = useQuery(api.budget.listCategories, { workspaceId });
+  const lineItemsQ  = useQuery(api.budget.listLineItems,  { workspaceId });
+  const vendorsQ    = useQuery(api.vendors.listVendors,   { workspaceId });
+  // Stable refs (so the memos below don't recompute every render while loading).
+  const lineItems = useMemo(() => lineItemsQ ?? [], [lineItemsQ]);
+  const vendors   = useMemo(() => vendorsQ   ?? [], [vendorsQ]);
 
   const seedDefaults  = useMutation(api.budget.seedDefaultCategories);
   const setTarget     = useMutation(api.budget.setTarget);

@@ -21,8 +21,9 @@ import { formatTime } from '@/app/lib/timeline';
 export default function TimelinePage() {
   const { workspaceId } = useWorkspace();
 
-  const items   = useQuery(api.timeline.listItems,  { workspaceId });
-  const vendors = useQuery(api.vendors.listVendors, { workspaceId }) ?? [];
+  const items    = useQuery(api.timeline.listItems,  { workspaceId });
+  const vendorsQ = useQuery(api.vendors.listVendors, { workspaceId });
+  const vendors  = useMemo(() => vendorsQ ?? [], [vendorsQ]);
 
   const addItem    = useMutation(api.timeline.addItem);
   const updateItem = useMutation(api.timeline.updateItem);
