@@ -53,12 +53,14 @@ export default function ObjectIcon({ name, size = 20 }: { name: string; size?: n
         </svg>
       );
     case 'stage':
-      // Raised stage platform with front steps
+      // Concert stage — peaked canopy roof, X-braced truss towers, lighting
+      // truss with hanging lights, and a stepped platform base.
       return (
         <svg {...p} aria-hidden>
-          <rect x="3" y="8.5" width="18" height="4" rx="0.5" />
-          <rect x="6.5" y="12.5" width="11" height="3.2" />
-          <rect x="9.5" y="15.7" width="5" height="3.2" />
+          <path d="M3 10 L3.5 8 L12 5.5 L20.5 8 L21 10 Z" />
+          <path d="M4 10.2V17.8 M6 10.2V17.8 M4 10.2H6 M4 14H6 M4 17.8H6 M4 10.2L6 14 M6 10.2L4 14 M4 14L6 17.8 M6 14L4 17.8 M18 10.2V17.8 M20 10.2V17.8 M18 10.2H20 M18 14H20 M18 17.8H20 M18 10.2L20 14 M20 10.2L18 14 M18 14L20 17.8 M20 14L18 17.8" />
+          <path d="M6 10.9H18 M6 11.9H18 M9 11.9V13 M12 11.9V13.2 M15 11.9V13" />
+          <path d="M2.5 17.8H21.5V19.4H2.5Z M7 19.4H17V20.6H7Z M9 20.6H15V21.8H9Z" />
         </svg>
       );
     case 'altar':

@@ -355,11 +355,12 @@ function KonvaObjectIcon({ kind, size }: { kind: string; size: number }) {
         <Path data="M16 6.5l2.5-1.6" {...base} />
         {dot(19, 4.4, 0.9)}
       </>); break;
-    case 'stage': // Raised stage platform with front steps
+    case 'stage': // Concert stage — canopy, X-braced truss towers, lights, stepped base
       shapes = (<>
-        <Rect x={3} y={8.5} width={18} height={4} cornerRadius={0.5} {...base} />
-        <Rect x={6.5} y={12.5} width={11} height={3.2} {...base} />
-        <Rect x={9.5} y={15.7} width={5} height={3.2} {...base} />
+        <Path data="M3 10 L3.5 8 L12 5.5 L20.5 8 L21 10 Z" {...base} />
+        <Path data="M4 10.2V17.8 M6 10.2V17.8 M4 10.2H6 M4 14H6 M4 17.8H6 M4 10.2L6 14 M6 10.2L4 14 M4 14L6 17.8 M6 14L4 17.8 M18 10.2V17.8 M20 10.2V17.8 M18 10.2H20 M18 14H20 M18 17.8H20 M18 10.2L20 14 M20 10.2L18 14 M18 14L20 17.8 M20 14L18 17.8" {...base} />
+        <Path data="M6 10.9H18 M6 11.9H18 M9 11.9V13 M12 11.9V13.2 M15 11.9V13" {...base} />
+        <Path data="M2.5 17.8H21.5V19.4H2.5Z M7 19.4H17V20.6H7Z M9 20.6H15V21.8H9Z" {...base} />
       </>); break;
     case 'altar': // Wedding arch / altar
       shapes = (<>
@@ -743,7 +744,22 @@ export default function SeatingCanvas({
 
   // ── Convex table mutations ────────────────────────────────────────────────
 
-  const updateTable = useMutation(api.tables.update);
+  // Optimistic update: patch the local tables list the instant a change is made
+  // (move/rotate/resize/etc.) so the table never flashes back to its old state
+  // while the server round-trips. Without this, clearing the live drag override
+  // before the mutation confirms makes the table appear to "snap back".
+  const updateTable = useMutation(api.tables.update).withOptimisticUpdate(
+    (store, args) => {
+      const existing = store.getQuery(api.tables.list, { workspaceId });
+      if (!existing) return;
+      const { tableId, ...fields } = args;
+      store.setQuery(
+        api.tables.list,
+        { workspaceId },
+        existing.map(t => (t._id === tableId ? { ...t, ...fields } : t))
+      );
+    }
+  );
   const createTable = useMutation(api.tables.create);
 
   // Rotate and resize are mutually exclusive modes.
