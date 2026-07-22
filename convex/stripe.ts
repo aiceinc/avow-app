@@ -115,6 +115,66 @@ export const createPortalSession = action({
 });
 
 /**
+ * Map a Stripe subscription onto our upsertFromStripe args, or null when the
+ * subscription isn't one of ours (no workspaceId in its metadata).
+ *
+ * Two fields have moved in Stripe's recent API versions, so both are read
+ * defensively rather than trusted:
+ *
+ *  - `current_period_end` moved from the subscription to the subscription item.
+ *  - `cancel_at_period_end` is no longer set when a subscription is cancelled at
+ *    period end. On 2026-05-27.dahlia (this account's version) the customer
+ *    portal leaves that boolean `false` and instead sets `cancel_at` to the
+ *    instant the subscription will end. Reading only the boolean made the app
+ *    show "your plan starts automatically" to someone who had just cancelled,
+ *    so treat EITHER signal as winding down.
+ */
+function subscriptionUpsertArgs(sub: Stripe.Subscription) {
+  const workspaceId = sub.metadata?.workspaceId;
+  if (!workspaceId) return null;
+
+  const item = sub.items?.data?.[0];
+  const legacy = sub as unknown as {
+    current_period_end?: number;
+    cancel_at?: number | null;
+    cancel_at_period_end?: boolean;
+  };
+  const periodEnd = item?.current_period_end ?? legacy.current_period_end;
+  const cancelling = legacy.cancel_at_period_end === true || typeof legacy.cancel_at === "number";
+  const ownerUserId = sub.metadata?.userId;
+
+  return {
+    workspaceId: workspaceId as Id<"workspaces">,
+    stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
+    stripeSubscriptionId: sub.id,
+    status: sub.status,
+    tier: sub.metadata?.tier ?? "couple",
+    interval: sub.metadata?.interval ?? item?.price?.recurring?.interval ?? "month",
+    currentPeriodEnd: periodEnd ?? undefined,
+    cancelAtPeriodEnd: cancelling,
+    trialEnd: sub.trial_end ?? undefined,
+    ownerUserId: ownerUserId ? (ownerUserId as Id<"users">) : undefined,
+  };
+}
+
+/**
+ * Re-read a subscription from Stripe and write it into Convex. Webhooks are the
+ * normal path; this is the repair path for when one is missed, mis-read, or
+ * fired before a mapping bug was fixed. Run it with:
+ *   npx convex run stripe:resyncSubscription '{"subscriptionId":"sub_…"}'
+ */
+export const resyncSubscription = internalAction({
+  args: { subscriptionId: v.string() },
+  handler: async (ctx, args): Promise<{ synced: boolean }> => {
+    const sub = await getStripe().subscriptions.retrieve(args.subscriptionId);
+    const upsertArgs = subscriptionUpsertArgs(sub);
+    if (!upsertArgs) return { synced: false };
+    await ctx.runMutation(internal.subscriptions.upsertFromStripe, upsertArgs);
+    return { synced: true };
+  },
+});
+
+/**
  * Verify + process a Stripe webhook event (called by the HTTP route in
  * convex/http.ts). Syncs subscription lifecycle into Convex, which in turn
  * sets/clears the workspace retention trigger.
@@ -140,33 +200,9 @@ export const handleWebhook = internalAction({
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
-      const sub = event.data.object as Stripe.Subscription;
-      const workspaceId = sub.metadata?.workspaceId;
-      if (!workspaceId) return { ok: true }; // not one of ours
-
-      const item = sub.items?.data?.[0];
-      const interval = sub.metadata?.interval ?? item?.price?.recurring?.interval ?? "month";
-      const tier = sub.metadata?.tier ?? "couple";
-      // current_period_end moved from the subscription to the subscription item
-      // in Stripe's 2025 API — read from the item, falling back to the sub for
-      // older API versions.
-      const periodEnd =
-        item?.current_period_end ??
-        (sub as unknown as { current_period_end?: number }).current_period_end;
-
-      const ownerUserId = sub.metadata?.userId;
-      await ctx.runMutation(internal.subscriptions.upsertFromStripe, {
-        workspaceId: workspaceId as Id<"workspaces">,
-        stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
-        stripeSubscriptionId: sub.id,
-        status: sub.status,
-        tier,
-        interval,
-        currentPeriodEnd: periodEnd ?? undefined,
-        cancelAtPeriodEnd: sub.cancel_at_period_end ?? undefined,
-        trialEnd: sub.trial_end ?? undefined,
-        ownerUserId: ownerUserId ? (ownerUserId as Id<"users">) : undefined,
-      });
+      const upsertArgs = subscriptionUpsertArgs(event.data.object as Stripe.Subscription);
+      if (!upsertArgs) return { ok: true }; // not one of ours (no workspace metadata)
+      await ctx.runMutation(internal.subscriptions.upsertFromStripe, upsertArgs);
     } else if (
       event.type === "invoice.payment_failed" ||
       event.type === "invoice.payment_succeeded"
