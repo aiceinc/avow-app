@@ -117,6 +117,15 @@ export function weddingLimitFor(tier: Tier): number {
  *     subscription becomes `active` — unless the user cancels first.
  * Requiring a card up front is what closes the "trial-and-leave" hole that
  * motivated removing the old trial.
+ *
+ * ⚠️ COUPLED TO A PUBLISHED LEGAL PROMISE — do not lower below 8 without reading
+ * this. The trial-ending reminder email is sent by STRIPE (Dashboard → Settings →
+ * Subscriptions and emails → "Send a reminder email 7 days before a trial ends").
+ * That window is FIXED at 7 days and Stripe does not send the email at all for
+ * trials of 7 days or fewer. Our Terms of Service §10 and Privacy Policy §13 both
+ * promise "we send a reminder before your trial converts", so shortening this to
+ * ≤7 would silently break a published commitment — you'd have to build the
+ * reminder in-app first (the app has no transactional email today).
  */
 export const TRIAL_PERIOD_DAYS = 14;
 
