@@ -69,18 +69,28 @@ export const getEntitlement = query({
     // without its own subscription. Returns the covering tier (or null).
     const plannerTier = await workspacePlannerCoverage(ctx, args.workspaceId);
     const plannerCovered = !!plannerTier;
+    // Distinguish coverage that comes from SOMEONE ELSE's Planner plan (this
+    // workspace has no subscription row of its own) from this workspace's own
+    // live subscription. Planner tiers are account-level, so a user's own
+    // Planner subscription also makes them "planner covered" — gating on that
+    // alone masked a trialing Planner subscription as "active" and meant the
+    // trial banner never appeared for Planner-tier trials.
+    const coveredElsewhere = plannerCovered && !live;
     // Trial state drives the countdown banner; eligibility drives the CTA copy
     // ("Start your free trial" vs "Choose a plan") for anyone not yet subscribed.
-    const isTrialing = !plannerCovered && live?.status === "trialing";
+    const isTrialing = live?.status === "trialing";
     return {
       hasSubscription: plannerCovered || !!live,
-      subStatus: plannerCovered ? "active" : live?.status ?? null,
+      // A workspace's own subscription always reports its real status; we only
+      // fall back to "active" when the entitlement comes from another member.
+      subStatus: live?.status ?? (plannerCovered ? "active" : null),
       tier: plannerTier ?? live?.tier ?? null,
-      // True only when this workspace has its OWN subscription covered by a Planner
-      // plan held elsewhere (no own sub row), so the UI can show an info note.
-      plannerCovered: plannerCovered && !live,
-      paymentFailed:
-        !plannerCovered && !!(live && (live.status === "past_due" || live.paymentFailed)),
+      // True only when this workspace is covered by a Planner plan held
+      // elsewhere (no own sub row), so the UI can show an info note.
+      plannerCovered: coveredElsewhere,
+      // An own subscription's payment state must always surface, so the
+      // update-your-card prompt still appears for a past-due Planner plan.
+      paymentFailed: !!(live && (live.status === "past_due" || live.paymentFailed)),
       isTrialing,
       // Unix ms the trial converts (Stripe sends trialEnd in unix seconds).
       trialEnd: isTrialing && live?.trialEnd != null ? live.trialEnd * 1000 : null,
