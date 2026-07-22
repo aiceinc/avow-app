@@ -25,7 +25,8 @@ import { Doc } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { rsvpStatusOf } from '@/app/lib/guests';
 import { sumTotals, formatMoney } from '@/app/lib/budget';
-import { statusOf } from '@/app/lib/vendors';
+import { statusOf, vendorStatusPill, vendorStatusStyle } from '@/app/lib/vendors';
+import ModalShell from '@/app/components/ModalShell';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -200,12 +201,11 @@ export default function HomePage() {
     </div>
 
     {dateModalOpen && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
-        style={{ background: 'rgba(26, 31, 46, 0.35)' }}
-        onClick={() => setDateModalOpen(false)}
+      <ModalShell
+        onDismiss={() => setDateModalOpen(false)}
+        padded
+        cardClassName="bg-white rounded-xl shadow-2xl p-6 max-w-xs w-full"
       >
-        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-xs w-full" onClick={(e) => e.stopPropagation()}>
           <h2 className="font-serif text-xl text-ink mb-4">Wedding date</h2>
           <input
             autoFocus
@@ -232,8 +232,7 @@ export default function HomePage() {
               {savingDate ? 'Saving…' : 'Save'}
             </button>
           </div>
-        </div>
-      </div>
+      </ModalShell>
     )}
     </>
   );
@@ -462,18 +461,6 @@ function TasksCard({ workspaceId, tasks, canEdit }: { workspaceId: Doc<'workspac
 
 // ── Vendors ───────────────────────────────────────────────────────────────────
 
-function vendorBadge(status: string): { cls: string } {
-  switch (status) {
-    case 'booked': return { cls: 'bg-emerald-50 text-emerald-800' };
-    case 'contacted': return { cls: 'bg-amber-50 text-amber-800' };
-    case 'declined': return { cls: 'bg-rose-50 text-rose-700' };
-    default: return { cls: 'bg-bg-tint text-ink-soft' };
-  }
-}
-const VENDOR_STATUS_LABEL: Record<string, string> = {
-  booked: 'Booked', contacted: 'Contacted', researching: 'Researching', declined: 'Declined',
-};
-
 function VendorsCard({ vendors, categories }: { vendors: Doc<'vendors'>[] | undefined; categories: Doc<'vendorCategories'>[] | undefined }) {
   return (
     <CardShell label="Vendors" href="/vendors" linkLabel="View vendors">
@@ -487,15 +474,14 @@ function VendorsCard({ vendors, categories }: { vendors: Doc<'vendors'>[] | unde
             const nameById = new Map(categories.map((c) => [c._id as string, c.name]));
             return vendors.slice(0, 6).map((v) => {
               const status = statusOf(v);
-              const badge = vendorBadge(status);
               return (
                 <div key={v._id} className="flex items-center justify-between gap-2 py-1.5 border-b border-rule/60 last:border-b-0">
                   <div className="min-w-0">
                     <div className="text-[0.78rem] text-ink truncate">{v.name}</div>
                     <div className="text-[0.68rem] text-ink-faint truncate">{v.categoryId ? nameById.get(v.categoryId) ?? 'Uncategorized' : 'Uncategorized'}</div>
                   </div>
-                  <span className={`text-[0.6rem] font-medium px-2 py-0.5 rounded-sm shrink-0 ${badge.cls}`}>
-                    {VENDOR_STATUS_LABEL[status]}
+                  <span className={`text-[0.6rem] font-medium px-2 py-0.5 rounded-sm shrink-0 ${vendorStatusPill(status)}`}>
+                    {vendorStatusStyle(status).label}
                   </span>
                 </div>
               );

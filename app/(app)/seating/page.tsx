@@ -389,7 +389,11 @@ export default function SeatingPage() {
                     </p>
                   </div>
                   {!canApply && (
-                    <p className="px-4 py-3 text-xs text-ink-faint">Add guests, or turn on <strong>Custom</strong> and enter a number, to generate a layout.</p>
+                    <p className="px-4 py-3 text-xs text-ink-faint">
+                      {customSeats
+                        ? <>Enter how many seats to plan for — the templates below unlock once there&apos;s a number.</>
+                        : <>Add guests, or turn on <strong>Custom</strong> and enter a number, to generate a layout.</>}
+                    </p>
                   )}
                   {(Object.entries(TEMPLATES) as [TemplateKey, (typeof TEMPLATES)[TemplateKey]][]).map(([key, tmpl]) => {
                     const { tableCount, totalSeats } = tmpl.plan(Math.max(1, targetSeats));

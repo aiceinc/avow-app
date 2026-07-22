@@ -1084,9 +1084,9 @@ export default function SeatingCanvas({
       const now = Date.now();
       if (now - lastCursorWriteRef.current < CURSOR_THROTTLE_MS) return;
       lastCursorWriteRef.current = now;
+      // No userId sent — the server derives it from the session.
       upsertCursor({
         workspaceId,
-        userId: myUserId,
         label:  myLabel,
         x: px,
         y: py,
@@ -1098,9 +1098,8 @@ export default function SeatingCanvas({
 
   useEffect(() => {
     if (!myUserId) return;
-    const uid  = myUserId;
     const wsId = workspaceId;
-    return () => { removeCursor({ workspaceId: wsId, userId: uid }); };
+    return () => { removeCursor({ workspaceId: wsId }); };
   }, [myUserId, workspaceId, removeCursor]);
 
   const now = Date.now();

@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { assertMember } from "./lib";
@@ -5,8 +6,13 @@ import { assertMember } from "./lib";
 /**
  * cursors.ts — ephemeral presence / live cursor broadcasting
  *
- * Now workspace-scoped. One row per active user per workspace.
- * The userId is now the real authenticated user ID (subject from JWT).
+ * Workspace-scoped: one row per active user per workspace.
+ *
+ * The acting user is ALWAYS derived server-side from the authenticated session
+ * (never accepted as an argument). Taking a `userId` from the client would let
+ * one member broadcast — or delete — presence under another member's identity,
+ * and it violates the Convex guideline against using a client-supplied
+ * identifier for authorization.
  */
 
 // ── list ─────────────────────────────────────────────────────────────────────
@@ -29,19 +35,19 @@ export const list = query({
 export const upsert = mutation({
   args: {
     workspaceId: v.id("workspaces"),
-    userId:      v.string(),
     label:       v.string(),
     x:           v.number(),
     y:           v.number(),
     updatedAt:   v.number(),
   },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    // assertMember returns the authenticated user — the identity we key on.
+    const userId = await assertMember(ctx, args.workspaceId);
 
     const existing = await ctx.db
       .query("cursors")
       .withIndex("by_workspaceId_and_userId", (q) =>
-        q.eq("workspaceId", args.workspaceId).eq("userId", args.userId)
+        q.eq("workspaceId", args.workspaceId).eq("userId", userId)
       )
       .unique();
 
@@ -55,7 +61,7 @@ export const upsert = mutation({
     } else {
       await ctx.db.insert("cursors", {
         workspaceId: args.workspaceId,
-        userId:      args.userId,
+        userId,
         label:       args.label,
         x:           args.x,
         y:           args.y,
@@ -67,18 +73,21 @@ export const upsert = mutation({
 
 // ── remove ────────────────────────────────────────────────────────────────────
 
-/** Called on unmount to clean up this user's cursor row. */
+/** Called on unmount to clean up this user's own cursor row. */
 export const remove = mutation({
-  args: {
-    workspaceId: v.id("workspaces"),
-    userId:      v.string(),
-  },
+  args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    // Best-effort — don't throw if not a member (component unmounting after logout)
+    // Best-effort: this fires on unmount, which can happen just after sign-out,
+    // so a missing identity is not an error — we simply have nothing to clean up.
+    // Deriving the user here (rather than accepting one) also means a caller can
+    // only ever delete their OWN presence row.
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return;
+
     const existing = await ctx.db
       .query("cursors")
       .withIndex("by_workspaceId_and_userId", (q) =>
-        q.eq("workspaceId", args.workspaceId).eq("userId", args.userId)
+        q.eq("workspaceId", args.workspaceId).eq("userId", userId)
       )
       .unique();
 

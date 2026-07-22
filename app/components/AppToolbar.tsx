@@ -16,6 +16,7 @@ import { api } from '@/convex/_generated/api';
 import { useWorkspace } from './WorkspaceContext';
 import { errorMessage } from '@/app/lib/errors';
 import { WORKSPACE_STORAGE_KEY as STORAGE_KEY } from '@/app/lib/config';
+import ModalShell from './ModalShell';
 
 export default function AppToolbar() {
   const { workspaceId, workspaceName, entitlement } = useWorkspace();
@@ -52,13 +53,18 @@ export default function AppToolbar() {
     }
   }
 
-  function handleCopyInvite() {
+  async function handleCopyInvite() {
     if (!inviteCode) return;
     const url = `${window.location.origin}/invite?code=${inviteCode}`;
-    navigator.clipboard.writeText(url).then(() => {
+    try {
+      await navigator.clipboard.writeText(url);
       setInviteCopied(true);
       setTimeout(() => setInviteCopied(false), 2000);
-    });
+    } catch {
+      // Clipboard can be blocked (permissions, insecure context). Don't fail
+      // silently — the link is on screen, so tell them to copy it manually.
+      alert('Could not copy automatically. Please copy the invite link shown beside the button.');
+    }
   }
 
   function switchTo(id: string) {
@@ -184,11 +190,12 @@ export default function AppToolbar() {
 
       {/* New-wedding modal */}
       {creating && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={() => { if (!savingNew) setCreating(false); }}
+        <ModalShell
+          onDismiss={() => setCreating(false)}
+          dismissOnBackdrop={!savingNew}
+          padded
+          cardClassName="bg-bg rounded-xl p-5 w-full max-w-sm shadow-xl"
         >
-          <div className="bg-bg rounded-xl p-5 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-serif text-lg text-ink mb-1">New wedding</h2>
             <p className="text-xs text-ink-faint mb-3">
               Start planning another wedding. Planner plans cover multiple weddings under one subscription.
@@ -213,8 +220,7 @@ export default function AppToolbar() {
                 {savingNew ? 'Creating…' : 'Create'}
               </button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
     </>
   );

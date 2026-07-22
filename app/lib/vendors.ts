@@ -23,6 +23,21 @@ export function statusOf(vendor: { status?: string }): VendorStatus {
 
 export type VendorStatusStyle = { label: string; dot: string; text: string };
 
+/**
+ * Filled-pill colour variant, used by the dashboard's Vendors card. The Vendors
+ * list itself uses the dot + label variant below. Both variants live here so the
+ * two surfaces can't drift apart (the dashboard previously carried its own
+ * private copy with slightly different colours).
+ */
+export function vendorStatusPill(status: VendorStatus): string {
+  switch (status) {
+    case 'booked':    return 'bg-emerald-50 text-emerald-800';
+    case 'contacted': return 'bg-amber-50 text-amber-800';
+    case 'declined':  return 'bg-rose-50 text-rose-700';
+    default:          return 'bg-bg-tint text-ink-soft';
+  }
+}
+
 export function vendorStatusStyle(status: VendorStatus): VendorStatusStyle {
   switch (status) {
     case 'booked':
