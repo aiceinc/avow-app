@@ -3,10 +3,10 @@
 /**
  * FeatureGate (v1.12.0) — wraps a premium module (seating / timeline / vendors)
  * and renders its children only when the active workspace's tier includes that
- * feature. Otherwise it shows an upgrade/subscribe panel instead, so Standard
- * (and free-trial) couples don't land on an editor that errors on every action.
- * The real enforcement is server-side (convex/lib.ts assertTierFeature) — this
- * is the matching UI.
+ * feature. Otherwise it shows a start-trial / upgrade panel instead, so couples
+ * without access don't land on an editor that errors on every action. The real
+ * enforcement is server-side (convex/lib.ts assertTierFeature) — this is the
+ * matching UI.
  */
 
 import Link from 'next/link';
@@ -21,7 +21,7 @@ export default function FeatureGate({
   children: React.ReactNode;
 }) {
   const { entitlement } = useWorkspace();
-  const { tier, status } = entitlement;
+  const { tier, status, trialEligible } = entitlement;
 
   // Don't flash the gate before entitlement loads.
   if (status === 'loading') return <>{children}</>;
@@ -43,7 +43,9 @@ export default function FeatureGate({
         <h2 className="font-serif text-2xl text-ink mb-2">{label}</h2>
         {locked ? (
           <p className="text-sm text-ink-soft leading-relaxed mb-6">
-            Subscribe to unlock {label.toLowerCase()} and start planning your wedding.
+            {trialEligible
+              ? `Start your free trial to unlock ${label.toLowerCase()} and begin planning your wedding.`
+              : `Subscribe to unlock ${label.toLowerCase()} and start planning your wedding.`}
           </p>
         ) : (
           <p className="text-sm text-ink-soft leading-relaxed mb-6">
@@ -51,7 +53,7 @@ export default function FeatureGate({
           </p>
         )}
         <Link href="/account" className="btn btn-primary text-sm px-6 py-3 inline-block">
-          {locked ? 'See plans' : 'Upgrade'}
+          {locked ? (trialEligible ? 'Start free trial' : 'See plans') : 'Upgrade'}
         </Link>
       </div>
     </div>

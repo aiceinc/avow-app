@@ -24,8 +24,9 @@ import {
   isTier,
   isInterval,
   isPlannerTier,
-  AUTO_RENEW_DISCLOSURE,
+  autoRenewDisclosure,
   REFUND_POLICY_TEXT,
+  TRIAL_PERIOD_DAYS,
 } from '@/convex/billingConfig';
 
 export default function AccountPage() {
@@ -248,11 +249,23 @@ function BillingSection() {
             {' '}(<span className="text-ink">{subscription.status}</span>,
             billed {subscription.interval === 'year' ? 'annually' : 'monthly'}).
           </p>
-          {subscription.currentPeriodEnd && (
+          {/* During a trial the meaningful date is the conversion date, not the
+              renewal date — say plainly what will be charged and when. */}
+          {subscription.status === 'trialing' && subscription.trialEnd ? (
             <p className="text-xs text-ink-faint">
-              {subscription.cancelAtPeriodEnd ? 'Cancels' : 'Renews'}{' '}
-              on {new Date(subscription.currentPeriodEnd * 1000).toLocaleDateString()}.
+              Your free trial ends on{' '}
+              {new Date(subscription.trialEnd * 1000).toLocaleDateString()}
+              {' — we’ll charge your card for the '}
+              {tierName(subscription.tier)}
+              {' plan and your subscription starts then. Cancel any time before that and you won’t be charged.'}
             </p>
+          ) : (
+            subscription.currentPeriodEnd && (
+              <p className="text-xs text-ink-faint">
+                {subscription.cancelAtPeriodEnd ? 'Cancels' : 'Renews'}{' '}
+                on {new Date(subscription.currentPeriodEnd * 1000).toLocaleDateString()}.
+              </p>
+            )
           )}
           <button onClick={manage} disabled={busy} className="btn btn-primary text-sm px-4 py-2">
             {busy ? 'Opening…' : 'Manage billing'}
@@ -270,7 +283,14 @@ function BillingSection() {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-ink-soft">
-            Choose a plan to start planning your wedding — your subscription begins right away.
+            {entitlement.trialEligible ? (
+              <>
+                Pick a plan to start your <strong className="text-ink">{TRIAL_PERIOD_DAYS}-day free trial</strong>.
+                {' '}We take a card up front but won&rsquo;t charge it until the trial ends — cancel any time before then.
+              </>
+            ) : (
+              <>Choose a plan to start planning your wedding — your subscription begins right away.</>
+            )}
           </p>
           <div className="flex items-center gap-3">
             <span className={`text-sm transition-colors ${interval === 'month' ? 'text-ink font-medium' : 'text-ink-soft'}`}>Monthly</span>
@@ -300,12 +320,17 @@ function BillingSection() {
                 }`}
               >
                 <div className="text-sm font-medium text-ink">{t.name}</div>
-                <div className="text-xs text-ink-faint mt-0.5">Subscribe →</div>
+                <div className="text-xs text-ink-faint mt-0.5">
+                  {entitlement.trialEligible ? 'Start free trial →' : 'Subscribe →'}
+                </div>
               </button>
             ))}
           </div>
 
-          <p className="text-[0.7rem] text-ink-faint leading-relaxed">{AUTO_RENEW_DISCLOSURE}</p>
+          {/* Must match the checkout they'll actually get — see autoRenewDisclosure. */}
+          <p className="text-[0.7rem] text-ink-faint leading-relaxed">
+            {autoRenewDisclosure(entitlement.trialEligible)}
+          </p>
           <p className="text-[0.7rem] text-ink-faint leading-relaxed">{REFUND_POLICY_TEXT}</p>
         </div>
       )}

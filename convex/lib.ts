@@ -61,14 +61,16 @@ export async function requireAuth(
 /**
  * The HARD PAYWALL gate. Assert the caller is a member AND the workspace has edit
  * access — i.e. a live subscription (its own active/trialing/past-due grace, or a
- * member's Planner plan). There is NO trial: without a subscription the workspace
- * is READ-ONLY and this throws, blocking every create/update/delete at the source.
- * Reads are never gated (members can always VIEW what they created).
+ * member's Planner plan). A Stripe free trial lands here as status `trialing`, so
+ * a trialing workspace has FULL edit access at the tier the user chose. Until a
+ * trial or subscription is started the workspace is READ-ONLY and this throws,
+ * blocking every create/update/delete at the source. Reads are never gated
+ * (members can always VIEW what they created).
  *
  * Use in place of assertMember in mutations that create or modify content.
  */
 const NO_SUBSCRIPTION_MESSAGE =
-  "A subscription is required to add or edit. Choose a plan to start planning your wedding.";
+  "Start your free trial or choose a plan to add or edit your wedding plans.";
 
 /**
  * Compute a workspace's effective tier + edit access. `tier` is the live
@@ -143,7 +145,8 @@ async function computeAccess(
   if (live) {
     return { tier: isTier(live.tier) ? live.tier : "couple", canEdit: true };
   }
-  // No trial: without a live subscription the workspace is read-only.
+  // No live subscription (a Stripe trial counts as one, status `trialing`) —
+  // the workspace is read-only until a trial or plan is started.
   return { tier: null, canEdit: false };
 }
 

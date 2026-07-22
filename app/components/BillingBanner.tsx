@@ -3,9 +3,10 @@
 /**
  * BillingBanner — the slim shell-wide billing notice, rendered just below the
  * module tabs on every authed page. Surfaces exactly one of:
- *   - locked:    no subscription → read-only paywall prompt (there is no trial).
+ *   - locked:    no subscription → read-only paywall / start-trial prompt.
  *   - past_due:  a payment failed → update-your-card prompt.
- * Renders nothing for an active subscription or while loading.
+ *   - trialing:  free trial running → days-left countdown.
+ * Renders nothing for an active paid subscription or while loading.
  *
  * Actions route to /account, where the subscribe / manage-billing controls live.
  */
@@ -14,10 +15,19 @@ import Link from 'next/link';
 import type { Entitlement } from '@/app/components/WorkspaceContext';
 
 export default function BillingBanner({ entitlement }: { entitlement: Entitlement }) {
-  const { status } = entitlement;
+  const { status, trialDaysLeft, trialEligible } = entitlement;
 
   if (status === 'locked') {
-    return (
+    // Anyone who hasn't used their one free trial gets the trial CTA; everyone
+    // else (already trialled) is asked to pick a plan.
+    return trialEligible ? (
+      <Bar tone="locked">
+        <span>
+          <strong>Start your free trial to begin planning.</strong> Your wedding is read-only until then.
+        </span>
+        <Action label="Start free trial" />
+      </Bar>
+    ) : (
       <Bar tone="locked">
         <span>
           <strong>Subscribe to start planning.</strong> Your wedding is read-only until you choose a plan.
@@ -35,6 +45,23 @@ export default function BillingBanner({ entitlement }: { entitlement: Entitlemen
           keep your subscription active.
         </span>
         <Action label="Update payment" />
+      </Bar>
+    );
+  }
+
+  if (status === 'trialing') {
+    const days = trialDaysLeft ?? 0;
+    return (
+      <Bar tone="info">
+        <span>
+          <strong>
+            {days === 0
+              ? 'Your free trial ends today.'
+              : `${days} day${days === 1 ? '' : 's'} left in your free trial.`}
+          </strong>{' '}
+          Your plan starts automatically when it ends — cancel any time before then.
+        </span>
+        <Action label="Manage plan" />
       </Bar>
     );
   }
@@ -57,10 +84,15 @@ function Bar({
   tone,
   children,
 }: {
-  tone: 'locked' | 'warn';
+  tone: 'locked' | 'warn' | 'info';
   children: React.ReactNode;
 }) {
-  const palette = tone === 'locked' ? 'bg-red-600 text-white' : 'bg-amber-500 text-ink';
+  const palette =
+    tone === 'locked'
+      ? 'bg-red-600 text-white'
+      : tone === 'warn'
+        ? 'bg-amber-500 text-ink'
+        : 'bg-ink text-bg';
   return (
     <div
       className={`${palette} px-6 sm:px-10 py-2 text-xs sm:text-[0.8rem] flex items-center justify-between gap-4 shrink-0`}

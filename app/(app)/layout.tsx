@@ -37,6 +37,9 @@ const LOADING_ENTITLEMENT: Entitlement = {
   canEdit: true, // don't flash the paywall before billing data loads
   paymentFailed: false,
   hasSubscription: false,
+  trialEnd: null,
+  trialDaysLeft: null,
+  trialEligible: false, // don't flash "start your free trial" before it loads
 };
 
 function Centered({ children }: { children: React.ReactNode }) {
@@ -151,6 +154,8 @@ function AppShell({
   );
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /** Turn the raw getEntitlement facts into the derived state used by the UI. */
 function deriveEntitlement(
   e:
@@ -159,27 +164,41 @@ function deriveEntitlement(
         subStatus: string | null;
         paymentFailed: boolean;
         tier: string | null;
+        isTrialing: boolean;
+        trialEnd: number | null;
+        trialEligible: boolean;
       }
     | undefined
 ): Entitlement {
   if (e === undefined) return LOADING_ENTITLEMENT;
-  // No trial: edit access requires a live subscription.
+  // A Stripe trial arrives as a live subscription (status `trialing`) and grants
+  // full edit access at the chosen tier.
   const canEdit = e.hasSubscription;
   const status: Entitlement['status'] = e.hasSubscription
     ? e.paymentFailed
       ? 'past_due'
-      : 'active'
+      : e.isTrialing
+        ? 'trialing'
+        : 'active'
     : 'locked';
   const tier = e.hasSubscription
     ? isTier(e.tier ?? '')
       ? (e.tier as Entitlement['tier'])
       : 'couple'
     : null;
+  // Round UP so the last partial day still reads as "1 day left", never "0".
+  const trialDaysLeft =
+    e.isTrialing && e.trialEnd != null
+      ? Math.max(0, Math.ceil((e.trialEnd - Date.now()) / DAY_MS))
+      : null;
   return {
     status,
     tier,
     canEdit,
     paymentFailed: e.paymentFailed,
     hasSubscription: e.hasSubscription,
+    trialEnd: e.trialEnd,
+    trialDaysLeft,
+    trialEligible: e.trialEligible,
   };
 }

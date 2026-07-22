@@ -1,5 +1,6 @@
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, query, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { assertMember, workspacePlannerCoverage } from "./lib";
 
 /**
@@ -10,6 +11,24 @@ import { assertMember, workspacePlannerCoverage } from "./lib";
 
 const ACTIVE_STATUSES = ["active", "trialing"];
 const LAPSED_STATUSES = ["canceled", "unpaid", "incomplete_expired"];
+
+/**
+ * One trial per user (TRIAL_ONCE_PER_USER). A user has "used" their trial if any
+ * subscription attributed to them as buyer (`ownerUserId`) has ever carried a
+ * `trialEnd` — cancelled/expired rows still count, which is the point.
+ *
+ * Caveat: subscription rows are workspace-scoped, so deleting the workspace that
+ * holds the row would also clear the record. That costs the user all their data,
+ * so it's acceptable friction; a determined abuser can register a new account
+ * regardless (Stripe-side card fingerprinting would be the next lever).
+ */
+async function hasUsedTrial(ctx: QueryCtx, userId: Id<"users">): Promise<boolean> {
+  const prior = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_ownerUserId", (q) => q.eq("ownerUserId", userId))
+    .take(50);
+  return prior.some((s) => s.trialEnd != null);
+}
 
 /** The workspace's current subscription (prefers an active/trialing/past_due row,
  *  else the most recent). Null if the workspace has never subscribed. */
@@ -31,13 +50,13 @@ export const getMy = query({
 
 /**
  * The workspace's entitlement facts for the client UI (paywall banner, plan
- * status). There is no trial — access requires a subscription. The authoritative
- * write-time gate is assertCanEdit (convex/lib.ts).
+ * status, trial countdown). A `trialing` subscription grants full access at the
+ * chosen tier — the authoritative write-time gate is assertCanEdit (convex/lib.ts).
  */
 export const getEntitlement = query({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    await assertMember(ctx, args.workspaceId);
+    const userId = await assertMember(ctx, args.workspaceId);
     const subs = await ctx.db
       .query("subscriptions")
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", args.workspaceId))
@@ -50,6 +69,9 @@ export const getEntitlement = query({
     // without its own subscription. Returns the covering tier (or null).
     const plannerTier = await workspacePlannerCoverage(ctx, args.workspaceId);
     const plannerCovered = !!plannerTier;
+    // Trial state drives the countdown banner; eligibility drives the CTA copy
+    // ("Start your free trial" vs "Choose a plan") for anyone not yet subscribed.
+    const isTrialing = !plannerCovered && live?.status === "trialing";
     return {
       hasSubscription: plannerCovered || !!live,
       subStatus: plannerCovered ? "active" : live?.status ?? null,
@@ -59,6 +81,10 @@ export const getEntitlement = query({
       plannerCovered: plannerCovered && !live,
       paymentFailed:
         !plannerCovered && !!(live && (live.status === "past_due" || live.paymentFailed)),
+      isTrialing,
+      // Unix ms the trial converts (Stripe sends trialEnd in unix seconds).
+      trialEnd: isTrialing && live?.trialEnd != null ? live.trialEnd * 1000 : null,
+      trialEligible: !(await hasUsedTrial(ctx, userId)),
     };
   },
 });
@@ -76,6 +102,9 @@ export const getCheckoutContext = internalQuery({
       stripeCustomerId: ws?.stripeCustomerId ?? null,
       email: user?.email ?? null,
       workspaceName: ws?.name ?? null,
+      // One trial per user: decides whether this Checkout gets a Stripe trial or
+      // charges immediately. Checked server-side so the client can't grant itself one.
+      trialEligible: !(await hasUsedTrial(ctx, userId)),
     };
   },
 });

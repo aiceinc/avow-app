@@ -103,10 +103,32 @@ export function weddingLimitFor(tier: Tier): number {
 }
 
 // ── Term parameters ──────────────────────────────────────────────────────────
-//
-// NO FREE TRIAL (product decision 2026-06-22): a paid subscription is required
-// from the start to add or edit anything — there is no trial period. A new user
-// can sign up and create a workspace, but it stays read-only until they subscribe.
+
+/**
+ * Free-trial length in days (re-introduced 2026-07-21, replacing the no-trial
+ * model of v1.16.0).
+ *
+ * This trial is STRIPE-MANAGED and card-gated, which is materially different
+ * from the app-managed, no-card, Couple-only trial that existed before v1.16.0:
+ *   - Stripe Checkout collects a payment method BEFORE the trial starts.
+ *   - The subscription is created in `trialing` on the tier the user CHOSE
+ *     (any of the three), so entitlement flows through the normal status path.
+ *   - At the end of the trial Stripe charges the card automatically and the
+ *     subscription becomes `active` — unless the user cancels first.
+ * Requiring a card up front is what closes the "trial-and-leave" hole that
+ * motivated removing the old trial.
+ */
+export const TRIAL_PERIOD_DAYS = 14;
+
+/** The trial requires a card at sign-up — this is what enables the automatic
+ *  trial→paid conversion. (Was `false` for the old app-managed trial.) */
+export const TRIAL_REQUIRES_CARD = true;
+
+/** One trial per user, ever. Enforced by checking whether any subscription
+ *  attributed to the buyer (`ownerUserId`) has ever carried a `trialEnd` —
+ *  see `subscriptions.getCheckoutContext`. A user who already used their trial
+ *  goes straight to a paid subscription at checkout. */
+export const TRIAL_ONCE_PER_USER = true;
 
 /**
  * Cancellation behavior. 'period_end' (prep-pack default) keeps the subscription
@@ -123,10 +145,29 @@ export const REFUND_POLICY_TEXT =
  * ⚠️ AUTO-RENEW DISCLOSURE — LEGALLY REGULATED FILL-IN SLOT.
  * PLACEHOLDER copy pending Brooke's final wording. The UI displays it verbatim at
  * the point of checkout. Do NOT author the final legal language here — replace
- * this whole string when Brooke provides it.
+ * these strings when Brooke provides them.
+ *
+ * TWO variants, because the two checkout paths make materially different
+ * promises and the trial-conversion one is the regulated case:
+ *   - TRIAL: card taken now, first charge deferred to the end of the trial.
+ *   - PAID:  charged immediately (a user who already used their one trial).
+ * Always select via `autoRenewDisclosure(withTrial)` so we never show a user a
+ * trial promise they aren't actually getting.
  */
+export const TRIAL_AUTO_RENEW_DISCLOSURE =
+  `[PENDING LEGAL — placeholder, not final wording] Your ${TRIAL_PERIOD_DAYS}-day free trial starts today and requires a ` +
+  `valid payment method. You will not be charged during the trial. Unless you cancel before it ends, your payment method ` +
+  `will automatically be charged for the plan you selected when the trial ends, and the subscription renews each billing ` +
+  `period at the then-current price until you cancel. We email you before the trial converts. You can cancel any time ` +
+  `from your account; cancellation takes effect at the end of the current billing period.`;
+
 export const AUTO_RENEW_DISCLOSURE =
   `[PENDING LEGAL — placeholder, not final wording] By subscribing, your payment method is charged immediately for the ` +
   `plan you selected and your subscription begins right away. It renews automatically each billing period at the ` +
   `then-current price until you cancel. You can cancel any time from your account; cancellation takes effect at the ` +
   `end of the current billing period.`;
+
+/** Pick the disclosure that matches the checkout the user is actually getting. */
+export function autoRenewDisclosure(withTrial: boolean): string {
+  return withTrial ? TRIAL_AUTO_RENEW_DISCLOSURE : AUTO_RENEW_DISCLOSURE;
+}

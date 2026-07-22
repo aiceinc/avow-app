@@ -12,12 +12,14 @@
  * Pricing is live (Stripe billing, test mode). A plan CTA stores the chosen plan
  * (`pendingPlan`) and opens the SIGN-UP flow; after the workspace is created,
  * /account picks it up and starts a real Stripe Checkout. Tiers/prices reflect
- * the planner-first, no-trial model (Couple / Planner Pro / Planner Max). Still
- * gated from PROD until the live Stripe account + final legal terms land.
+ * the planner-first model (Couple / Planner Pro / Planner Max), each starting
+ * with a card-gated TRIAL_PERIOD_DAYS free trial (v1.24.0). Still gated from
+ * PROD until the live Stripe account + final legal terms land.
  * The hero image is intentionally left blank for Ben to supply.
  */
 
 import { useState, FormEvent } from 'react';
+import { TRIAL_PERIOD_DAYS } from '@/convex/billingConfig';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -207,13 +209,15 @@ export default function AuthPage() {
             </p>
             <div className="flex items-center gap-6 flex-wrap">
               <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">
-                Get started
+                Start free trial
               </button>
               <button onClick={() => scrollToId('how')} className="text-sm text-ink-soft border-b border-ink/20 pb-px hover:text-ink transition-colors">
                 See how it works
               </button>
             </div>
-            <p className="text-xs text-ink-faint mt-4">Plans from $49/mo · cancel anytime.</p>
+            <p className="text-xs text-ink-faint mt-4">
+              Start with a {TRIAL_PERIOD_DAYS}-day free trial · plans from $49/mo · cancel anytime.
+            </p>
           </div>
         </div>
 
@@ -283,9 +287,11 @@ export default function AuthPage() {
           <span className="text-[0.65rem] font-medium bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-sm tracking-wide">Save 20%</span>
         </div>
 
-        {/* Billing notice */}
+        {/* Billing notice — must state the card requirement plainly: the trial is
+            card-gated and converts automatically, so this can't imply "no card". */}
         <p className="text-center text-[0.78rem] text-ink-soft mb-8">
-          Billed monthly or annually · your subscription starts right away · cancel anytime.
+          Every plan starts with a {TRIAL_PERIOD_DAYS}-day free trial · a card is required and is
+          only charged when the trial ends · cancel anytime before then and you pay nothing.
         </p>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -300,8 +306,10 @@ export default function AuthPage() {
         <h2 className="font-serif font-light text-5xl leading-tight mb-4">
           Your wedding,<br /><em className="italic">beautifully organised</em>
         </h2>
-        <p className="text-[15px] text-ink-soft mb-8">Get started today — cancel anytime.</p>
-        <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">Get started</button>
+        <p className="text-[15px] text-ink-soft mb-8">
+          Try it free for {TRIAL_PERIOD_DAYS} days — cancel anytime.
+        </p>
+        <button onClick={() => openAuth('signUp')} className="btn btn-primary text-sm px-7 py-3.5">Start free trial</button>
       </section>
 
       {/* ── Footer (shared dark footer) ─────────────────────────────────────── */}
@@ -466,9 +474,11 @@ function PriceCard({ tier, annual, onChoose }: { tier: Tier; annual: boolean; on
             : 'border-ink text-ink hover:bg-ink hover:text-bg'
         }`}
       >
-        Get started
+        Start free trial
       </button>
-      <div className="text-[0.68rem] text-ink-faint text-center mt-3">Cancel anytime.</div>
+      <div className="text-[0.68rem] text-ink-faint text-center mt-3">
+        Free for {TRIAL_PERIOD_DAYS} days, then billed automatically · cancel anytime.
+      </div>
     </div>
   );
 }

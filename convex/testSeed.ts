@@ -97,7 +97,17 @@ export const provisionUser = internalMutation({
  *  of an EXISTING test user (by email). For changing an account's tier without
  *  recreating it. */
 export const seedSubscription = internalMutation({
-  args: { email: v.string(), tier: v.string() },
+  args: {
+    email: v.string(),
+    tier: v.string(),
+    /** Subscription status to seed. Defaults to "active". Pass "trialing" (with
+     *  trialDays) to exercise the free-trial UI without a real Stripe Checkout,
+     *  which the sandboxed preview can't drive. */
+    status: v.optional(v.string()),
+    /** Days until the trial converts. Sets `trialEnd` (unix SECONDS, matching
+     *  Stripe's `trial_end`). Only meaningful with status "trialing". */
+    trialDays: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     assertTestEmail(args.email);
     if (!isTier(args.tier)) throw new Error(`Invalid tier "${args.tier}".`);
@@ -118,21 +128,28 @@ export const seedSubscription = internalMutation({
       .query("subscriptions")
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
       .first();
+    const status = args.status ?? "active";
     const row = {
       workspaceId,
       stripeCustomerId: `seed_cus_${user._id}`,
       stripeSubscriptionId: existing?.stripeSubscriptionId ?? `seed_sub_${workspaceId}`,
-      status: "active",
+      status,
       tier: args.tier,
       interval: "month",
       cancelAtPeriodEnd: false,
       paymentFailed: false,
       ownerUserId: user._id,
+      // unix SECONDS, like Stripe's trial_end. Cleared when not trialing so a
+      // re-seed back to "active" also clears the one-trial-per-user marker.
+      trialEnd:
+        args.trialDays != null
+          ? Math.floor(Date.now() / 1000) + args.trialDays * 86400
+          : undefined,
     };
     if (existing) await ctx.db.patch(existing._id, row);
     else await ctx.db.insert("subscriptions", row);
     await ctx.db.patch(workspaceId, { subscriptionLapsedAt: undefined });
-    return { email: args.email, tier: args.tier, workspaceId };
+    return { email: args.email, tier: args.tier, status, workspaceId };
   },
 });
 

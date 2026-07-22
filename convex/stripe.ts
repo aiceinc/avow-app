@@ -9,7 +9,8 @@ import {
   isTier,
   isInterval,
   priceEnvVar,
-  AUTO_RENEW_DISCLOSURE,
+  autoRenewDisclosure,
+  TRIAL_PERIOD_DAYS,
 } from "./billingConfig";
 
 /**
@@ -61,15 +62,19 @@ export const createCheckoutSession = action({
       });
     }
 
-    // There is no trial — a paid subscription is required to access content. Choosing
-    // a paid plan ENDS the trial: we start a normal paid subscription with NO
-    // Stripe trial, so the customer is charged immediately and the paid term
-    // begins right away (no "N days free of <paid tier>").
+    // Free trial (v1.24.0): available on ANY tier, once per user. Checkout always
+    // collects a card (subscription mode's default), so Stripe can convert the
+    // trial to a paid subscription automatically on day TRIAL_PERIOD_DAYS unless
+    // the user cancels — no app-side scheduling needed. Eligibility is decided
+    // server-side in getCheckoutContext; a user who already used their trial gets
+    // a normal paid subscription charged immediately.
+    const withTrial = conf.trialEligible;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
+        ...(withTrial ? { trial_period_days: TRIAL_PERIOD_DAYS } : {}),
         metadata: {
           workspaceId: args.workspaceId,
           tier: args.tier,
@@ -80,9 +85,10 @@ export const createCheckoutSession = action({
       client_reference_id: args.workspaceId,
       success_url: `${args.origin}/account?billing=success`,
       cancel_url: `${args.origin}/account?billing=cancel`,
-      // Auto-renew disclosure shown at the point of checkout (Stripe caps this
-      // at 1200 chars). Final wording is Brooke's — see AUTO_RENEW_DISCLOSURE.
-      custom_text: { submit: { message: AUTO_RENEW_DISCLOSURE.slice(0, 1200) } },
+      // Auto-renew disclosure shown at the point of checkout (Stripe caps this at
+      // 1200 chars). MUST match the checkout the user is actually getting — the
+      // trial variant promises a deferred first charge. Final wording is Brooke's.
+      custom_text: { submit: { message: autoRenewDisclosure(withTrial).slice(0, 1200) } },
     });
     if (!session.url) throw new ConvexError("Stripe did not return a checkout URL.");
     return { url: session.url };
