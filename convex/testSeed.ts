@@ -107,6 +107,10 @@ export const seedSubscription = internalMutation({
     /** Days until the trial converts. Sets `trialEnd` (unix SECONDS, matching
      *  Stripe's `trial_end`). Only meaningful with status "trialing". */
     trialDays: v.optional(v.number()),
+    /** Mirrors Stripe's `cancel_at_period_end` — the subscription stays live
+     *  until the period/trial ends and then lapses instead of renewing. Lets us
+     *  exercise the "cancelled, winding down" UI without a real Stripe cancel. */
+    cancelAtPeriodEnd: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     assertTestEmail(args.email);
@@ -136,7 +140,7 @@ export const seedSubscription = internalMutation({
       status,
       tier: args.tier,
       interval: "month",
-      cancelAtPeriodEnd: false,
+      cancelAtPeriodEnd: args.cancelAtPeriodEnd ?? false,
       paymentFailed: false,
       ownerUserId: user._id,
       // unix SECONDS, like Stripe's trial_end. Cleared when not trialing so a

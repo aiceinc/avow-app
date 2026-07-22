@@ -35,6 +35,11 @@ export type Entitlement = {
   /** The user has never used their one free trial — drives CTA copy
    *  ("Start your free trial" vs "Choose a plan"). */
   trialEligible: boolean;
+  /** Cancelled but still running: access continues until the trial/period ends,
+   *  then the subscription LAPSES rather than renewing. */
+  cancelAtPeriodEnd: boolean;
+  /** Unix ms the paid period ends, or null while trialing (use trialEnd). */
+  currentPeriodEnd: number | null;
 };
 
 export type WorkspaceContextValue = {

@@ -92,6 +92,14 @@ export const getEntitlement = query({
       // update-your-card prompt still appears for a past-due Planner plan.
       paymentFailed: !!(live && (live.status === "past_due" || live.paymentFailed)),
       isTrialing,
+      // Stripe's cancel_at_period_end: the subscription stays live until the
+      // period (or trial) ends and then LAPSES instead of renewing. The UI must
+      // say so — otherwise a cancelled trial still reads "your plan starts
+      // automatically", which is the opposite of what will happen.
+      cancelAtPeriodEnd: !!live?.cancelAtPeriodEnd,
+      // Unix ms the current paid period ends (null while trialing — use trialEnd).
+      currentPeriodEnd:
+        !isTrialing && live?.currentPeriodEnd != null ? live.currentPeriodEnd * 1000 : null,
       // Unix ms the trial converts (Stripe sends trialEnd in unix seconds).
       trialEnd: isTrialing && live?.trialEnd != null ? live.trialEnd * 1000 : null,
       trialEligible: !(await hasUsedTrial(ctx, userId)),

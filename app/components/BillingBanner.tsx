@@ -14,8 +14,12 @@
 import Link from 'next/link';
 import type { Entitlement } from '@/app/components/WorkspaceContext';
 
+const fmtDate = (ms: number) =>
+  new Date(ms).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
 export default function BillingBanner({ entitlement }: { entitlement: Entitlement }) {
-  const { status, trialDaysLeft, trialEligible } = entitlement;
+  const { status, trialDaysLeft, trialEligible, cancelAtPeriodEnd, trialEnd, currentPeriodEnd } =
+    entitlement;
 
   if (status === 'locked') {
     // Anyone who hasn't used their one free trial gets the trial CTA; everyone
@@ -51,17 +55,42 @@ export default function BillingBanner({ entitlement }: { entitlement: Entitlemen
 
   if (status === 'trialing') {
     const days = trialDaysLeft ?? 0;
+    const left =
+      days === 0 ? 'Your free trial ends today.' : `${days} day${days === 1 ? '' : 's'} left in your free trial.`;
+    // Cancelled during the trial: it will NOT convert. Access continues to the
+    // end of the trial, then the wedding becomes read-only.
+    if (cancelAtPeriodEnd) {
+      return (
+        <Bar tone="warn">
+          <span>
+            <strong>{left}</strong> You&rsquo;ve cancelled, so your plan won&rsquo;t start
+            {trialEnd ? ` on ${fmtDate(trialEnd)}` : ''} — your wedding becomes read-only after that.
+          </span>
+          <Action label="Resume plan" />
+        </Bar>
+      );
+    }
     return (
       <Bar tone="info">
         <span>
-          <strong>
-            {days === 0
-              ? 'Your free trial ends today.'
-              : `${days} day${days === 1 ? '' : 's'} left in your free trial.`}
-          </strong>{' '}
+          <strong>{left}</strong>{' '}
           Your plan starts automatically when it ends — cancel any time before then.
         </span>
         <Action label="Manage plan" />
+      </Bar>
+    );
+  }
+
+  // Paid and cancelled: still active until the period ends, then read-only.
+  if (status === 'active' && cancelAtPeriodEnd) {
+    return (
+      <Bar tone="warn">
+        <span>
+          <strong>Your plan is cancelled.</strong> You keep access
+          {currentPeriodEnd ? ` until ${fmtDate(currentPeriodEnd)}` : ' until the end of this billing period'},
+          then your wedding becomes read-only.
+        </span>
+        <Action label="Resume plan" />
       </Bar>
     );
   }

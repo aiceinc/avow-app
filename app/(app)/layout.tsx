@@ -40,6 +40,8 @@ const LOADING_ENTITLEMENT: Entitlement = {
   trialEnd: null,
   trialDaysLeft: null,
   trialEligible: false, // don't flash "start your free trial" before it loads
+  cancelAtPeriodEnd: false,
+  currentPeriodEnd: null,
 };
 
 function Centered({ children }: { children: React.ReactNode }) {
@@ -167,6 +169,8 @@ function deriveEntitlement(
         isTrialing: boolean;
         trialEnd: number | null;
         trialEligible: boolean;
+        cancelAtPeriodEnd: boolean;
+        currentPeriodEnd: number | null;
       }
     | undefined
 ): Entitlement {
@@ -200,5 +204,7 @@ function deriveEntitlement(
     trialEnd: e.trialEnd,
     trialDaysLeft,
     trialEligible: e.trialEligible,
+    cancelAtPeriodEnd: e.cancelAtPeriodEnd,
+    currentPeriodEnd: e.currentPeriodEnd,
   };
 }

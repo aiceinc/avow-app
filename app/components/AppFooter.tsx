@@ -15,7 +15,7 @@ export default function AppFooter() {
       <div className="flex items-center gap-7">
         <Link href="/privacy" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Privacy</Link>
         <a href="mailto:hello@avow.wedding" className="text-xs tracking-wide text-bg/40 hover:text-bg transition-colors">Contact</a>
-        <span className="text-xs tracking-wide text-bg/30">v1.25.1 · © 2026 Avow</span>
+        <span className="text-xs tracking-wide text-bg/30">v1.25.2 · © 2026 Avow</span>
       </div>
     </footer>
   );

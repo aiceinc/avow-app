@@ -252,13 +252,23 @@ function BillingSection() {
           {/* During a trial the meaningful date is the conversion date, not the
               renewal date — say plainly what will be charged and when. */}
           {subscription.status === 'trialing' && subscription.trialEnd ? (
-            <p className="text-xs text-ink-faint">
-              Your free trial ends on{' '}
-              {new Date(subscription.trialEnd * 1000).toLocaleDateString()}
-              {' — we’ll charge your card for the '}
-              {tierName(subscription.tier)}
-              {' plan and your subscription starts then. Cancel any time before that and you won’t be charged.'}
-            </p>
+            subscription.cancelAtPeriodEnd ? (
+              // Cancelled mid-trial: it will NOT convert, so don't promise a charge.
+              <p className="text-xs text-ink-faint">
+                You’ve cancelled, so your {tierName(subscription.tier)} plan won’t start. Your free
+                trial runs until{' '}
+                {new Date(subscription.trialEnd * 1000).toLocaleDateString()} and your card won’t be
+                charged — after that your wedding becomes read-only. Resume any time before then.
+              </p>
+            ) : (
+              <p className="text-xs text-ink-faint">
+                Your free trial ends on{' '}
+                {new Date(subscription.trialEnd * 1000).toLocaleDateString()}
+                {' — we’ll charge your card for the '}
+                {tierName(subscription.tier)}
+                {' plan and your subscription starts then. Cancel any time before that and you won’t be charged.'}
+              </p>
+            )
           ) : (
             subscription.currentPeriodEnd && (
               <p className="text-xs text-ink-faint">
