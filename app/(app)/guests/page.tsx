@@ -31,11 +31,13 @@ import {
   PartnerNames,
   RSVP_OPTIONS,
 } from '@/app/lib/guests';
+import ExportCsvButton from '@/app/components/ExportCsvButton';
+import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
 
 type SortKey = 'name-asc' | 'name-desc';
 
 export default function GuestsPage() {
-  const { workspaceId, partnerNames, entitlement } = useWorkspace();
+  const { workspaceId, workspaceName, partnerNames, entitlement } = useWorkspace();
 
   const guests        = useQuery(api.guests.list,          { workspaceId });
   const assignmentsQ  = useQuery(api.seatAssignments.list, { workspaceId });
@@ -130,6 +132,29 @@ export default function GuestsPage() {
               {total} guest{total !== 1 ? 's' : ''} · {attending} attending
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          <ExportCsvButton
+            disabled={total === 0}
+            onExport={() => {
+              const tableName = new Map((tablesQ ?? []).map((t) => [t._id as string, t.label ?? '']));
+              const seatOf = new Map(
+                (assignmentsQ ?? []).map((a) => [a.guestId as string, tableName.get(a.tableId as string) ?? ''])
+              );
+              downloadFile(
+                exportFilename(workspaceName, 'guests', 'csv'),
+                toCsv(guests ?? [], [
+                  { header: 'Name', value: (g) => g.name },
+                  { header: 'Side', value: (g) => sideFullLabel(g.side, partnerNames) },
+                  { header: 'RSVP', value: (g) => rsvpStatusOf(g) },
+                  { header: 'Plus one', value: (g) => (g.hasPlusOne ? 'Yes' : 'No') },
+                  { header: 'Plus-one name', value: (g) => g.plusOneName ?? '' },
+                  { header: 'Dietary notes', value: (g) => g.dietaryNotes ?? '' },
+                  { header: 'Table', value: (g) => seatOf.get(g._id as string) ?? '' },
+                ]),
+                'text/csv'
+              );
+            }}
+          />
           {!isEmpty && (
             <button
               onClick={openAdd}
@@ -140,6 +165,7 @@ export default function GuestsPage() {
               + Add a guest
             </button>
           )}
+          </div>
         </div>
 
         {atCap && (

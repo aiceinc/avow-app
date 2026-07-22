@@ -23,6 +23,8 @@ import FilterPill from '@/app/components/FilterPill';
 import VendorFormModal, { VendorFormValues } from '@/app/components/VendorFormModal';
 import { VendorStatus, VENDOR_STATUS_OPTIONS, statusOf, vendorStatusStyle } from '@/app/lib/vendors';
 import { formatMoney } from '@/app/lib/budget';
+import ExportCsvButton from '@/app/components/ExportCsvButton';
+import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
 
 type SortKey = 'name-asc' | 'name-desc';
 
@@ -30,7 +32,7 @@ type SortKey = 'name-asc' | 'name-desc';
 type Rollup = { count: number; estimated: number; actual: number };
 
 export default function VendorsPage() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, workspaceName } = useWorkspace();
 
   const vendors    = useQuery(api.vendors.listVendors,   { workspaceId });
   const categories = useQuery(api.vendors.listCategories, { workspaceId });
@@ -192,11 +194,33 @@ export default function VendorsPage() {
               {total} vendor{total !== 1 ? 's' : ''} · {booked} booked
             </p>
           </div>
-          {!isEmpty && (
-            <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add a vendor
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportCsvButton
+              disabled={total === 0}
+              onExport={() => {
+                const catName = new Map((categories ?? []).map((c) => [c._id as string, c.name]));
+                downloadFile(
+                  exportFilename(workspaceName, 'vendors', 'csv'),
+                  toCsv(vendors ?? [], [
+                    { header: 'Name', value: (v) => v.name },
+                    { header: 'Category', value: (v) => (v.categoryId ? catName.get(v.categoryId as string) ?? '' : '') },
+                    { header: 'Status', value: (v) => vendorStatusStyle(statusOf(v)).label },
+                    { header: 'Contact name', value: (v) => v.contactName ?? '' },
+                    { header: 'Email', value: (v) => v.email ?? '' },
+                    { header: 'Phone', value: (v) => v.phone ?? '' },
+                    { header: 'Website', value: (v) => v.website ?? '' },
+                    { header: 'Notes', value: (v) => v.notes ?? '' },
+                  ]),
+                  'text/csv'
+                );
+              }}
+            />
+            {!isEmpty && (
+              <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
+                + Add a vendor
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && (

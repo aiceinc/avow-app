@@ -22,6 +22,8 @@ import ObjectIcon from '@/app/components/ObjectIcon';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { TEMPLATES, TemplateKey, suggestTemplateKey } from '@/app/lib/templates';
 import { OBJECT_PRESETS, type ObjectPreset } from '@/app/lib/objects';
+import ExportCsvButton from '@/app/components/ExportCsvButton';
+import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
 
 const FT_PER_M = 3.28084;
 
@@ -93,7 +95,7 @@ function useDragWidth(key: string, initial: number, min: number, max: number, ed
 }
 
 export default function SeatingPage() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, workspaceName } = useWorkspace();
   const leftBar  = useDragWidth('avow:seatingLeftW',  288, 220, 460, 'right');
   const rightBar = useDragWidth('avow:seatingRightW', 288, 220, 460, 'left');
 
@@ -509,6 +511,45 @@ export default function SeatingPage() {
             ))}
             <button onClick={handleAddLayout} className="px-2 py-1 text-sm text-accent hover:bg-bg-tint rounded-md whitespace-nowrap" title="Add a seating layout">+ Layout</button>
             <div className="ml-auto flex items-center gap-1 shrink-0">
+              <ExportCsvButton
+                label="Export CSV"
+                title="Download the seating chart for every layout as a spreadsheet (CSV)"
+                disabled={allTables.length === 0}
+                onExport={() => {
+                  const layoutName = new Map(layouts.map((l) => [l._id as string, l.name]));
+                  const guestName = new Map(guests.map((g) => [g._id as string, g.name]));
+                  // One row per seat: every layout, every table, every assigned guest.
+                  const rows = allTables.flatMap((t) => {
+                    const seats = allAssigns.filter((a) => a.tableId === t._id);
+                    const label = t.label ?? '';
+                    const layout = t.layoutId ? layoutName.get(t.layoutId as string) ?? '' : '';
+                    if (seats.length === 0) {
+                      return [{ layout, table: label, kind: t.kind ?? 'seating', seat: '', guest: '' }];
+                    }
+                    return seats
+                      .slice()
+                      .sort((a, b) => a.seatIndex - b.seatIndex)
+                      .map((a) => ({
+                        layout,
+                        table: label,
+                        kind: t.kind ?? 'seating',
+                        seat: String(a.seatIndex + 1),
+                        guest: guestName.get(a.guestId as string) ?? '',
+                      }));
+                  });
+                  downloadFile(
+                    exportFilename(workspaceName, 'seating', 'csv'),
+                    toCsv(rows, [
+                      { header: 'Layout', value: (r) => r.layout },
+                      { header: 'Table', value: (r) => r.table },
+                      { header: 'Type', value: (r) => (r.kind === 'object' ? 'Feature' : 'Table') },
+                      { header: 'Seat', value: (r) => r.seat },
+                      { header: 'Guest', value: (r) => r.guest },
+                    ]),
+                    'text/csv'
+                  );
+                }}
+              />
               {tables.length > 0 && (
                 <button onClick={handleResetAll} className="text-xs text-ink-faint hover:text-red-600 px-2 whitespace-nowrap" title="Remove every table in this layout">Reset layout</button>
               )}

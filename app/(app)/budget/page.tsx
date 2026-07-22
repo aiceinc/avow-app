@@ -22,9 +22,11 @@ import {
   paidStatusStyle,
   sumTotals,
 } from '@/app/lib/budget';
+import ExportCsvButton from '@/app/components/ExportCsvButton';
+import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
 
 export default function BudgetPage() {
-  const { workspaceId, entitlement } = useWorkspace();
+  const { workspaceId, workspaceName, entitlement } = useWorkspace();
   const canEdit = entitlement.canEdit;
 
   const settings    = useQuery(api.budget.getSettings,    { workspaceId });
@@ -209,7 +211,33 @@ export default function BudgetPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-4xl mx-auto w-full px-6 py-6">
-        <h1 className="font-serif text-2xl text-ink mb-4">Budget</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="font-serif text-2xl text-ink">Budget</h1>
+          <ExportCsvButton
+            disabled={lineItems.length === 0}
+            onExport={() => {
+              const catName = new Map((categories ?? []).map((c) => [c._id as string, c.name]));
+              const vendorName = new Map(vendors.map((v) => [v._id as string, v.name]));
+              downloadFile(
+                exportFilename(workspaceName, 'budget', 'csv'),
+                toCsv(lineItems, [
+                  { header: 'Category', value: (i) => catName.get(i.categoryId as string) ?? '' },
+                  { header: 'Item', value: (i) => i.name },
+                  { header: 'Estimated', value: (i) => i.estimatedCost },
+                  { header: 'Actual', value: (i) => i.actualCost ?? '' },
+                  { header: 'Paid status', value: (i) => paidStatusStyle(i.paidStatus).label },
+                  { header: 'Amount paid', value: (i) => i.amountPaid ?? '' },
+                  {
+                    header: 'Vendor',
+                    value: (i) => (i.vendorId ? vendorName.get(i.vendorId as string) ?? i.vendor ?? '' : i.vendor ?? ''),
+                  },
+                  { header: 'Notes', value: (i) => i.notes ?? '' },
+                ]),
+                'text/csv'
+              );
+            }}
+          />
+        </div>
 
         {/* Target row */}
         <div className="mb-4">

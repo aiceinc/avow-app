@@ -14,6 +14,7 @@ import type * as billingConfig from "../billingConfig.js";
 import type * as budget from "../budget.js";
 import type * as crons from "../crons.js";
 import type * as cursors from "../cursors.js";
+import type * as exportData from "../exportData.js";
 import type * as guests from "../guests.js";
 import type * as http from "../http.js";
 import type * as layouts from "../layouts.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   budget: typeof budget;
   crons: typeof crons;
   cursors: typeof cursors;
+  exportData: typeof exportData;
   guests: typeof guests;
   http: typeof http;
   layouts: typeof layouts;

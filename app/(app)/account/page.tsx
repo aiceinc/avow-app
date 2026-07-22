@@ -11,12 +11,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useAction } from 'convex/react';
+import { useQuery, useMutation, useAction, useConvex } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '@/convex/_generated/api';
 import { PRIVACY_CONTACT_EMAIL } from '@/app/lib/config';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { errorMessage } from '@/app/lib/errors';
+import { downloadFile, exportFilename } from '@/app/lib/exportFile';
 import {
   TIERS,
   type Tier,
@@ -86,6 +87,9 @@ export default function AccountPage() {
 
         {/* Billing & subscription */}
         <BillingSection />
+
+        {/* Data portability — "Export everything" */}
+        <ExportEverythingSection />
 
         {/* Danger zone — delete account + data */}
         <section className="border border-red-200 rounded-xl bg-red-50/40 p-5">
@@ -345,6 +349,71 @@ function BillingSection() {
         </div>
       )}
 
+      {error && <p className="text-xs text-red-600 mt-3">{error}</p>}
+    </section>
+  );
+}
+
+/**
+ * ExportEverythingSection — data portability.
+ *
+ * Downloads a complete JSON snapshot of the current wedding. This is the control
+ * the Privacy Policy points at for portability under Quebec Law 25 / GDPR, so it
+ * is intentionally available even when the workspace is read-only or the
+ * subscription has lapsed — you can always take your data with you.
+ *
+ * The query is fired ON DEMAND (useConvex().query) rather than with useQuery, so
+ * opening /account doesn't pull the entire workspace down every time.
+ */
+function ExportEverythingSection() {
+  const convex = useConvex();
+  const { workspaceId, workspaceName } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function handleExport() {
+    setBusy(true);
+    setError(null);
+    setDone(false);
+    try {
+      const data = await convex.query(api.exportData.workspaceExport, { workspaceId });
+      downloadFile(
+        exportFilename(workspaceName, 'export', 'json'),
+        JSON.stringify(data, null, 2),
+        'application/json'
+      );
+      setDone(true);
+      setTimeout(() => setDone(false), 4000);
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Could not build your export. Please try again.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="border border-rule rounded-xl bg-white p-5">
+      <h2 className="font-serif text-lg text-ink mb-1">Your data</h2>
+      <p className="text-sm text-ink-soft leading-relaxed mb-2">
+        Download everything in this wedding — guests, seating, budget, vendors, timeline, tasks,
+        notes, and your wedding website — as a single file you can keep or take elsewhere.
+      </p>
+      <p className="text-xs text-ink-faint leading-relaxed mb-4">
+        The file is JSON, a structured format other tools can read. You can also export individual
+        lists as spreadsheets (CSV) from the Guest List, Budget, Vendors, Timeline, and Seating
+        Planner pages.
+      </p>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleExport}
+          disabled={busy}
+          className="btn btn-secondary text-sm px-4 py-2 disabled:opacity-50"
+        >
+          {busy ? 'Preparing…' : 'Export everything'}
+        </button>
+        {done && <span className="text-xs text-accent">Downloaded ✓</span>}
+      </div>
       {error && <p className="text-xs text-red-600 mt-3">{error}</p>}
     </section>
   );

@@ -17,9 +17,11 @@ import { useWorkspace } from '@/app/components/WorkspaceContext';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import TimelineItemModal, { TimelineItemFormValues } from '@/app/components/TimelineItemModal';
 import { formatTime } from '@/app/lib/timeline';
+import ExportCsvButton from '@/app/components/ExportCsvButton';
+import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
 
 export default function TimelinePage() {
-  const { workspaceId } = useWorkspace();
+  const { workspaceId, workspaceName } = useWorkspace();
 
   const items    = useQuery(api.timeline.listItems,  { workspaceId });
   const vendorsQ = useQuery(api.vendors.listVendors, { workspaceId });
@@ -102,11 +104,33 @@ export default function TimelinePage() {
               {total} event{total !== 1 ? 's' : ''}
             </p>
           </div>
-          {!isEmpty && (
-            <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
-              + Add an event
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportCsvButton
+              disabled={total === 0}
+              onExport={() => {
+                const vendorName = new Map(vendors.map((v) => [v._id as string, v.name]));
+                const sorted = [...(items ?? [])].sort((a, b) => a.time - b.time);
+                downloadFile(
+                  exportFilename(workspaceName, 'timeline', 'csv'),
+                  toCsv(sorted, [
+                    { header: 'Time', value: (i) => formatTime(i.time) },
+                    { header: 'Event', value: (i) => i.title },
+                    { header: 'Location', value: (i) => i.location ?? '' },
+                    { header: 'Vendor', value: (i) => (i.vendorId ? vendorName.get(i.vendorId as string) ?? '' : '') },
+                    { header: 'Responsible', value: (i) => i.responsibleParty ?? '' },
+                    { header: 'Shown on website', value: (i) => (i.isPublic ? 'Yes' : 'No') },
+                    { header: 'Notes', value: (i) => i.notes ?? '' },
+                  ]),
+                  'text/csv'
+                );
+              }}
+            />
+            {!isEmpty && (
+              <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
+                + Add an event
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && (
