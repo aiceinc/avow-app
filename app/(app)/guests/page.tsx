@@ -42,9 +42,11 @@ export default function GuestsPage() {
   const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
   const realGuests    = useQuery(api.guests.list,          { workspaceId });
-  const assignmentsQ  = useQuery(api.seatAssignments.list, { workspaceId });
-  const tablesQ       = useQuery(api.tables.list,          { workspaceId });
+  const realAssignmentsQ = useQuery(api.seatAssignments.list, { workspaceId });
+  const realTablesQ      = useQuery(api.tables.list,          { workspaceId });
   const guests        = isDemo ? demo.guests : realGuests;
+  const assignmentsQ  = isDemo ? demo.seatAssignments : realAssignmentsQ;
+  const tablesQ       = isDemo ? demo.tables : realTablesQ;
   // Stable refs so the memos below don't recompute every render while loading.
   const assignments = useMemo(() => assignmentsQ ?? [], [assignmentsQ]);
   const tables      = useMemo(() => tablesQ      ?? [], [tablesQ]);

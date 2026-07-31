@@ -22,12 +22,14 @@ export default function BillingBanner({ entitlement }: { entitlement: Entitlemen
     entitlement;
 
   if (status === 'locked') {
-    // Anyone who hasn't used their one free trial gets the trial CTA; everyone
-    // else (already trialled) is asked to pick a plan.
+    // Anyone who hasn't used their one free trial sees the demo workspace
+    // they're currently looking at (WorkspaceContext.isDemo — same condition);
+    // everyone else (already trialled) is asked to pick a plan.
     return trialEligible ? (
       <Bar tone="locked">
         <span>
-          <strong>Start your free trial to begin planning.</strong> Your wedding is read-only until then.
+          <strong>You&rsquo;re in a demo workspace — have a look around!</strong> Start a trial or
+          subscribe to begin your wedding plan.
         </span>
         <Action label="Start free trial" />
       </Bar>

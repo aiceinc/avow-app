@@ -14,7 +14,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id, Doc } from '@/convex/_generated/dataModel';
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import GuestPanel from '@/app/components/GuestPanel';
 import ConfirmModal from '@/app/components/ConfirmModal';
 import TableShapeIcon from '@/app/components/TableShapeIcon';
@@ -24,6 +24,8 @@ import { TEMPLATES, TemplateKey, suggestTemplateKey } from '@/app/lib/templates'
 import { OBJECT_PRESETS, type ObjectPreset } from '@/app/lib/objects';
 import ExportCsvButton from '@/app/components/ExportCsvButton';
 import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
+import { buildDemoContent } from '@/app/lib/demoContent';
+import DemoSeatingPreview from '@/app/components/DemoSeatingPreview';
 
 const FT_PER_M = 3.28084;
 
@@ -95,7 +97,8 @@ function useDragWidth(key: string, initial: number, min: number, max: number, ed
 }
 
 export default function SeatingPage() {
-  const { workspaceId, workspaceName } = useWorkspace();
+  const { workspaceId, workspaceName, entitlement, isDemo } = useWorkspace();
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
   const leftBar  = useDragWidth('avow:seatingLeftW',  288, 220, 460, 'right');
   const rightBar = useDragWidth('avow:seatingRightW', 288, 220, 460, 'left');
 
@@ -120,9 +123,16 @@ export default function SeatingPage() {
   const setLayoutVenue = useMutation(api.layouts.setVenue);
 
   // Create the default Dinner + Reception layouts on first visit (idempotent).
+  // Waits for entitlement to resolve (not 'loading') and skips entirely in
+  // demo mode: otherwise the effect fires once while status is still
+  // 'loading' — before isDemo has settled to true — and the mutation gets
+  // rejected server-side (canEdit is false), just to log a console error.
+  // Demo mode also wants this skipped permanently, so the real workspace
+  // stays genuinely empty underneath the example content.
   useEffect(() => {
+    if (entitlement.status === 'loading' || isDemo) return;
     ensureLayouts({ workspaceId }).catch(() => {});
-  }, [workspaceId, ensureLayouts]);
+  }, [workspaceId, ensureLayouts, entitlement.status, isDemo]);
 
   // ── Active layout ──────────────────────────────────────────────────────────
   const [pickedLayoutId, setPickedLayoutId] = useState<string | null>(null);
@@ -363,6 +373,14 @@ export default function SeatingPage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // Demo mode renders a static preview instead — see DemoSeatingPreview for
+  // why this isn't just SeatingCanvas with a readOnly prop. All the hooks
+  // above still run (real, mostly-empty queries) so this stays a plain
+  // conditional render, not a conditional hook.
+  if (isDemo) {
+    return <DemoSeatingPreview tables={demo.tables} guests={demo.guests} seatAssignments={demo.seatAssignments} />;
+  }
+
   return (
     <>
       <div className="flex-1 flex overflow-hidden min-h-0">

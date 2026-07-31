@@ -135,6 +135,25 @@ const TIMELINE_ITEMS: DemoTimelineItem[] = [
   { time: 19 * 60, title: 'Send-off', isPublic: false },
 ];
 
+// ── Seating (static preview only — see DemoSeatingPreview) ─────────────────
+
+type DemoTable = Pick<
+  Doc<'tables'>,
+  'shape' | 'seatCount' | 'x' | 'y' | 'rotation' | 'label' | 'kind' | 'objectKind' | 'radius' | 'width' | 'height'
+> & { guestIndices?: number[] };
+
+const TABLES: DemoTable[] = [
+  { shape: 'rectangular', seatCount: 6, x: 450, y: 90, rotation: 0, label: 'Head Table', width: 260, height: 60, guestIndices: [0, 1, 13, 11, 14, 17] },
+  { shape: 'round', seatCount: 8, x: 180, y: 250, rotation: 0, label: 'Table 1', radius: 46, guestIndices: [4, 6] },
+  { shape: 'round', seatCount: 8, x: 450, y: 250, rotation: 0, label: 'Table 2', radius: 46, guestIndices: [7, 9, 10] },
+  { shape: 'round', seatCount: 8, x: 720, y: 250, rotation: 0, label: 'Table 3', radius: 46 },
+  { shape: 'round', seatCount: 8, x: 180, y: 420, rotation: 0, label: 'Table 4', radius: 46 },
+  { shape: 'round', seatCount: 8, x: 450, y: 420, rotation: 0, label: 'Table 5', radius: 46 },
+  { shape: 'round', seatCount: 8, x: 720, y: 420, rotation: 0, label: 'Table 6', radius: 46 },
+  { shape: 'rectangular', seatCount: 0, x: 470, y: 555, rotation: 0, label: 'Dance Floor', width: 200, height: 90, kind: 'object', objectKind: 'dancefloor' },
+  { shape: 'round', seatCount: 0, x: 790, y: 555, rotation: 0, label: 'Bar', radius: 40, kind: 'object', objectKind: 'bar' },
+];
+
 // ── Wedding Website ──────────────────────────────────────────────────────────
 
 const WEDDING_SITE_CONTENT = {
@@ -212,6 +231,39 @@ export function buildDemoContent(workspaceId: Id<'workspaces'>) {
     0
   ) as Doc<'weddingSites'>;
 
+  const seatingLayout = withDoc(
+    'seatingLayouts',
+    workspaceId,
+    { name: 'Reception', order: 0 },
+    0
+  ) as Doc<'seatingLayouts'>;
+  const tables = TABLES.map((t, i) =>
+    withDoc(
+      'tables',
+      workspaceId,
+      {
+        shape: t.shape, seatCount: t.seatCount, x: t.x, y: t.y, rotation: t.rotation,
+        label: t.label, kind: t.kind, objectKind: t.objectKind,
+        radius: t.radius, width: t.width, height: t.height,
+        layoutId: seatingLayout._id,
+      },
+      i
+    )
+  ) as Doc<'tables'>[];
+  const seatAssignments: Doc<'seatAssignments'>[] = [];
+  TABLES.forEach((t, tableIdx) => {
+    (t.guestIndices ?? []).forEach((guestIdx, seatIdx) => {
+      seatAssignments.push(
+        withDoc(
+          'seatAssignments',
+          workspaceId,
+          { tableId: tables[tableIdx]._id, seatIndex: seatIdx, guestId: guests[guestIdx]._id },
+          seatAssignments.length
+        ) as Doc<'seatAssignments'>
+      );
+    });
+  });
+
   return {
     guests,
     vendorCategories,
@@ -223,5 +275,8 @@ export function buildDemoContent(workspaceId: Id<'workspaces'>) {
     notes,
     timelineItems,
     weddingSite,
+    seatingLayout,
+    tables,
+    seatAssignments,
   };
 }
