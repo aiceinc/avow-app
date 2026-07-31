@@ -10,7 +10,7 @@
  * whitelisted projection via convex/public.ts.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { errorMessage } from '@/app/lib/errors';
 import { api } from '@/convex/_generated/api';
@@ -18,14 +18,19 @@ import { Doc, Id } from '@/convex/_generated/dataModel';
 import { useWorkspace } from '@/app/components/WorkspaceContext';
 import { formatTime } from '@/app/lib/timeline';
 import { rsvpStatusOf, rsvpStyle } from '@/app/lib/guests';
+import { buildDemoContent } from '@/app/lib/demoContent';
 
 export default function WebsitePage() {
-  const { workspaceId, entitlement } = useWorkspace();
+  const { workspaceId, entitlement, isDemo } = useWorkspace();
   const canEdit = entitlement.canEdit;
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
-  const site    = useQuery(api.weddingSite.get,    { workspaceId });
-  const items   = useQuery(api.timeline.listItems, { workspaceId }) ?? [];
-  const guests  = useQuery(api.guests.list,        { workspaceId }) ?? [];
+  const realSite   = useQuery(api.weddingSite.get,    { workspaceId });
+  const realItems  = useQuery(api.timeline.listItems, { workspaceId }) ?? [];
+  const realGuests = useQuery(api.guests.list,        { workspaceId }) ?? [];
+  const site   = isDemo ? demo.weddingSite : realSite;
+  const items  = isDemo ? demo.timelineItems : realItems;
+  const guests = isDemo ? demo.guests : realGuests;
 
   const initSite      = useMutation(api.weddingSite.initSite);
   const updateContent = useMutation(api.weddingSite.updateContent);
@@ -50,7 +55,10 @@ export default function WebsitePage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-3xl mx-auto w-full px-6 py-6 space-y-6">
-        <h1 className="font-serif text-2xl text-ink">Wedding Website</h1>
+        <div>
+          <h1 className="font-serif text-2xl text-ink">Wedding Website</h1>
+          {isDemo && <p className="text-sm text-ink-faint mt-0.5">Example wedding</p>}
+        </div>
 
         {site === null ? (
           <p className="text-sm text-ink-faint py-12 text-center">Setting up your site…</p>
@@ -58,8 +66,8 @@ export default function WebsitePage() {
           <>
             <PublishCard site={site} canEdit={canEdit} onSetSlug={(slug) => setSlug({ workspaceId, slug })} onSetPublished={(p) => setPublished({ workspaceId, published: p })} />
             <ContentCard site={site} canEdit={canEdit} onSave={(values) => updateContent({ workspaceId, ...values })} />
-            <ScheduleCard items={items} onToggle={(itemId, isPublic) => updateItem({ itemId, isPublic })} />
-            <RsvpCard guests={guests} slug={site.slug} onEnsureToken={(guestId) => ensureToken({ guestId })} />
+            <ScheduleCard items={items} canEdit={canEdit && !isDemo} onToggle={(itemId, isPublic) => updateItem({ itemId, isPublic })} />
+            <RsvpCard guests={guests} slug={site.slug} hasRealGuestId={!isDemo} onEnsureToken={(guestId) => ensureToken({ guestId })} />
           </>
         )}
       </div>
@@ -246,9 +254,11 @@ function Field({ label, children, className }: { label: string; children: React.
 
 function ScheduleCard({
   items,
+  canEdit,
   onToggle,
 }: {
   items: Doc<'timelineItems'>[];
+  canEdit: boolean;
   onToggle: (itemId: Id<'timelineItems'>, isPublic: boolean) => Promise<unknown>;
 }) {
   const sorted = [...items].sort((a, b) => a.time - b.time);
@@ -273,8 +283,9 @@ function ScheduleCard({
                 <input
                   type="checkbox"
                   checked={item.isPublic === true}
+                  disabled={!canEdit}
                   onChange={(e) => onToggle(item._id, e.target.checked)}
-                  className="accent-accent"
+                  className="accent-accent disabled:cursor-not-allowed"
                 />
                 Show on site
               </label>
@@ -291,10 +302,15 @@ function ScheduleCard({
 function RsvpCard({
   guests,
   slug,
+  hasRealGuestId,
   onEnsureToken,
 }: {
   guests: Doc<'guests'>[];
   slug: string;
+  // ensureGuestToken is membership-gated, not canEdit-gated — a real locked
+  // account can still share invite links. Only demo mode's fake guest ids
+  // need this hidden (they don't exist in the DB, so the mutation 404s).
+  hasRealGuestId: boolean;
   onEnsureToken: (guestId: Id<'guests'>) => Promise<string>;
 }) {
   const responded = guests.filter((g) => rsvpStatusOf(g) !== 'pending').length;
@@ -311,7 +327,7 @@ function RsvpCard({
       ) : (
         <ul className="divide-y divide-rule">
           {guests.map((g) => (
-            <RsvpRow key={g._id} guest={g} slug={slug} onEnsureToken={onEnsureToken} />
+            <RsvpRow key={g._id} guest={g} slug={slug} hasRealGuestId={hasRealGuestId} onEnsureToken={onEnsureToken} />
           ))}
         </ul>
       )}
@@ -322,10 +338,12 @@ function RsvpCard({
 function RsvpRow({
   guest,
   slug,
+  hasRealGuestId,
   onEnsureToken,
 }: {
   guest: Doc<'guests'>;
   slug: string;
+  hasRealGuestId: boolean;
   onEnsureToken: (guestId: Id<'guests'>) => Promise<string>;
 }) {
   const [copied, setCopied] = useState(false);
@@ -346,9 +364,11 @@ function RsvpRow({
         <span className={`w-1.5 h-1.5 rounded-full ${rsvp.dot}`} />
         {rsvp.label}
       </span>
-      <button onClick={copyLink} className="text-xs text-ink-faint hover:text-ink transition-colors shrink-0">
-        {copied ? 'Copied!' : 'Copy invite link'}
-      </button>
+      {hasRealGuestId && (
+        <button onClick={copyLink} className="text-xs text-ink-faint hover:text-ink transition-colors shrink-0">
+          {copied ? 'Copied!' : 'Copy invite link'}
+        </button>
+      )}
     </li>
   );
 }

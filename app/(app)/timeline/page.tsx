@@ -19,13 +19,17 @@ import TimelineItemModal, { TimelineItemFormValues } from '@/app/components/Time
 import { formatTime } from '@/app/lib/timeline';
 import ExportCsvButton from '@/app/components/ExportCsvButton';
 import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
+import { buildDemoContent } from '@/app/lib/demoContent';
 
 export default function TimelinePage() {
-  const { workspaceId, workspaceName } = useWorkspace();
+  const { workspaceId, workspaceName, entitlement, isDemo } = useWorkspace();
+  const canEdit = entitlement.canEdit;
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
-  const items    = useQuery(api.timeline.listItems,  { workspaceId });
-  const vendorsQ = useQuery(api.vendors.listVendors, { workspaceId });
-  const vendors  = useMemo(() => vendorsQ ?? [], [vendorsQ]);
+  const realItems = useQuery(api.timeline.listItems,  { workspaceId });
+  const vendorsQ  = useQuery(api.vendors.listVendors, { workspaceId });
+  const items    = isDemo ? demo.timelineItems : realItems;
+  const vendors  = useMemo(() => (isDemo ? demo.vendors : (vendorsQ ?? [])), [isDemo, demo, vendorsQ]);
 
   const addItem    = useMutation(api.timeline.addItem);
   const updateItem = useMutation(api.timeline.updateItem);
@@ -102,6 +106,7 @@ export default function TimelinePage() {
             <h1 className="font-serif text-2xl text-ink">Day-of Timeline</h1>
             <p className="text-sm text-ink-faint mt-0.5">
               {total} event{total !== 1 ? 's' : ''}
+              {isDemo && ' · Example wedding'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -126,7 +131,11 @@ export default function TimelinePage() {
               }}
             />
             {!isEmpty && (
-              <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
+              <button
+                onClick={openAdd}
+                disabled={!canEdit}
+                className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 + Add an event
               </button>
             )}
@@ -180,6 +189,7 @@ export default function TimelinePage() {
                     key={item._id}
                     item={item}
                     vendorLabel={item.vendorId ? vendorName.get(item.vendorId) ?? 'Unknown vendor' : undefined}
+                    canEdit={canEdit}
                     onEdit={() => openEdit(item)}
                     onDelete={() => setDeleting(item)}
                   />
@@ -217,11 +227,13 @@ export default function TimelinePage() {
 function TimelineRow({
   item,
   vendorLabel,
+  canEdit,
   onEdit,
   onDelete,
 }: {
   item: Doc<'timelineItems'>;
   vendorLabel?: string;
+  canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -250,10 +262,12 @@ function TimelineRow({
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Edit ${item.title}`}>Edit</button>
-        <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${item.title}`}>Delete</button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button onClick={onEdit} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Edit ${item.title}`}>Edit</button>
+          <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${item.title}`}>Delete</button>
+        </div>
+      )}
     </li>
   );
 }

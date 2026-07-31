@@ -117,6 +117,36 @@ const NOTES: Array<Pick<Doc<'notes'>, 'text'>> = [
   { text: "Grandma's ring needs resizing before the ceremony." },
 ];
 
+// ── Day-of Timeline ──────────────────────────────────────────────────────────
+
+type DemoTimelineItem = Pick<
+  Doc<'timelineItems'>,
+  'time' | 'title' | 'location' | 'responsibleParty' | 'isPublic'
+> & { vendorIndex?: number };
+
+const TIMELINE_ITEMS: DemoTimelineItem[] = [
+  { time: 9 * 60, title: 'Hair & makeup begins', location: 'Bridal suite', responsibleParty: 'Wedding party' },
+  { time: 11 * 60 + 30, title: 'First look photos', vendorIndex: 2, isPublic: false },
+  { time: 13 * 60, title: 'Ceremony', location: 'Willowbrook Estate — garden', vendorIndex: 5, isPublic: true },
+  { time: 13 * 60 + 30, title: 'Cocktail hour', location: 'Willowbrook Estate — terrace', isPublic: true },
+  { time: 15 * 60, title: 'Reception begins', location: 'Willowbrook Estate — hall', vendorIndex: 1, isPublic: true },
+  { time: 16 * 60, title: 'Speeches & toasts', isPublic: true },
+  { time: 16 * 60 + 30, title: 'First dance', vendorIndex: 4, isPublic: true },
+  { time: 19 * 60, title: 'Send-off', isPublic: false },
+];
+
+// ── Wedding Website ──────────────────────────────────────────────────────────
+
+const WEDDING_SITE_CONTENT = {
+  coupleNames: 'Alex & Jordan',
+  venueName: 'Willowbrook Estate',
+  venueLocation: '412 Orchard Lane, Caledon, ON',
+  story:
+    "We met on a rainy Tuesday at a bookshop neither of us usually goes to. Three years, two cats, and one very persistent proposal later — here we are.",
+  travelNotes:
+    "The venue is 45 minutes from downtown Toronto. A block of rooms is held at the Caledon Inn (mention 'Alex & Jordan' for the rate). Parking is free on-site.",
+};
+
 // ── Assembly ─────────────────────────────────────────────────────────────────
 
 function withDoc<Table extends TableNames, Row extends Record<string, unknown>>(
@@ -166,10 +196,19 @@ export function buildDemoContent(workspaceId: Id<'workspaces'>) {
   const tasks = TASKS.map((t, i) => withDoc('tasks', workspaceId, t, i)) as Doc<'tasks'>[];
   const notes = NOTES.map((n, i) => withDoc('notes', workspaceId, n, i)) as Doc<'notes'>[];
 
+  const timelineItems = TIMELINE_ITEMS.map(({ vendorIndex, ...item }, i) =>
+    withDoc(
+      'timelineItems',
+      workspaceId,
+      { ...item, vendorId: vendorIndex !== undefined ? vendors[vendorIndex]._id : undefined },
+      i
+    )
+  ) as Doc<'timelineItems'>[];
+
   const weddingSite = withDoc(
     'weddingSites',
     workspaceId,
-    { slug: 'demo', published: false, weddingDate: DEMO_WEDDING_DATE },
+    { slug: 'demo', published: false, weddingDate: DEMO_WEDDING_DATE, ...WEDDING_SITE_CONTENT },
     0
   ) as Doc<'weddingSites'>;
 
@@ -182,6 +221,7 @@ export function buildDemoContent(workspaceId: Id<'workspaces'>) {
     targetBudget: DEMO_TARGET_BUDGET,
     tasks,
     notes,
+    timelineItems,
     weddingSite,
   };
 }
