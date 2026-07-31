@@ -137,10 +137,11 @@ function AppShell({
 }) {
   const ent = useQuery(api.subscriptions.getEntitlement, { workspaceId });
   const entitlement = deriveEntitlement(ent);
+  const isDemo = entitlement.status === 'locked' && entitlement.trialEligible;
 
   return (
     <WorkspaceContext.Provider
-      value={{ workspaceId, workspaceName, partnerNames, switchWorkspace, entitlement }}
+      value={{ workspaceId, workspaceName, partnerNames, switchWorkspace, entitlement, isDemo }}
     >
       <div className="flex flex-col h-screen overflow-hidden bg-bg">
         <AppToolbar />

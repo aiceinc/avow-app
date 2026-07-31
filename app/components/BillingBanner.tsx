@@ -118,7 +118,7 @@ function Bar({
 }) {
   const palette =
     tone === 'locked'
-      ? 'bg-red-600 text-white'
+      ? 'bg-accent-deep text-bg'
       : tone === 'warn'
         ? 'bg-amber-500 text-ink'
         : 'bg-ink text-bg';

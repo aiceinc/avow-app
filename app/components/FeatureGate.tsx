@@ -16,15 +16,23 @@ import { tierHasFeature, FEATURE_LABEL, type Feature } from '@/convex/billingCon
 export default function FeatureGate({
   feature,
   children,
+  bypassForDemo,
 }: {
   feature: Feature;
   children: React.ReactNode;
+  /** Let the wrapped module render its own example-wedding content instead of
+   *  this wall while locked-and-never-trialed. Only pass this once the module
+   *  actually has demo fixtures wired up (see WorkspaceContext's `isDemo`) —
+   *  otherwise a bypassed module would render its real, empty state instead. */
+  bypassForDemo?: boolean;
 }) {
-  const { entitlement } = useWorkspace();
+  const { entitlement, isDemo } = useWorkspace();
   const { tier, status, trialEligible } = entitlement;
 
   // Don't flash the gate before entitlement loads.
   if (status === 'loading') return <>{children}</>;
+
+  if (bypassForDemo && isDemo) return <>{children}</>;
 
   if (tier != null && tierHasFeature(tier, feature)) return <>{children}</>;
 

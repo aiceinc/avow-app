@@ -24,18 +24,21 @@ import {
 } from '@/app/lib/budget';
 import ExportCsvButton from '@/app/components/ExportCsvButton';
 import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
+import { buildDemoContent } from '@/app/lib/demoContent';
 
 export default function BudgetPage() {
-  const { workspaceId, workspaceName, entitlement } = useWorkspace();
+  const { workspaceId, workspaceName, entitlement, isDemo } = useWorkspace();
   const canEdit = entitlement.canEdit;
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
-  const settings    = useQuery(api.budget.getSettings,    { workspaceId });
-  const categories  = useQuery(api.budget.listCategories, { workspaceId });
+  const realSettings   = useQuery(api.budget.getSettings,    { workspaceId });
+  const realCategories = useQuery(api.budget.listCategories, { workspaceId });
   const lineItemsQ  = useQuery(api.budget.listLineItems,  { workspaceId });
   const vendorsQ    = useQuery(api.vendors.listVendors,   { workspaceId });
+  const categories  = isDemo ? demo.budgetCategories : realCategories;
   // Stable refs (so the memos below don't recompute every render while loading).
-  const lineItems = useMemo(() => lineItemsQ ?? [], [lineItemsQ]);
-  const vendors   = useMemo(() => vendorsQ   ?? [], [vendorsQ]);
+  const lineItems = useMemo(() => (isDemo ? demo.budgetLineItems : (lineItemsQ ?? [])), [isDemo, demo, lineItemsQ]);
+  const vendors   = useMemo(() => (isDemo ? demo.vendors : (vendorsQ ?? [])), [isDemo, demo, vendorsQ]);
 
   const seedDefaults  = useMutation(api.budget.seedDefaultCategories);
   const setTarget     = useMutation(api.budget.setTarget);
@@ -74,7 +77,7 @@ export default function BudgetPage() {
   }, [vendors]);
 
   const totals = useMemo(() => sumTotals(lineItems), [lineItems]);
-  const target = settings?.targetBudget ?? null;
+  const target = isDemo ? demo.targetBudget : (realSettings?.targetBudget ?? null);
   const hasTarget = target !== null;
   // Remaining is measured against actuals once any exist, else against estimates.
   const basis = totals.actual > 0 ? totals.actual : totals.estimated;
@@ -205,13 +208,13 @@ export default function BudgetPage() {
     });
   }
 
-  const loading = categories === undefined || settings === undefined;
+  const loading = !isDemo && (categories === undefined || realSettings === undefined);
   const noItems = !loading && lineItems.length === 0;
 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-4xl mx-auto w-full px-6 py-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-1">
           <h1 className="font-serif text-2xl text-ink">Budget</h1>
           <ExportCsvButton
             disabled={lineItems.length === 0}
@@ -238,6 +241,7 @@ export default function BudgetPage() {
             }}
           />
         </div>
+        {isDemo && <p className="text-sm text-ink-faint mb-3">Example wedding</p>}
 
         {/* Target row */}
         <div className="mb-4">

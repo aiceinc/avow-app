@@ -17,7 +17,7 @@
  * deletion + retention via WORKSPACE_SCOPED_TABLES). No new client deps.
  */
 
-import { useState, FormEvent } from 'react';
+import { useMemo, useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -27,6 +27,7 @@ import { rsvpStatusOf } from '@/app/lib/guests';
 import { sumTotals, formatMoney } from '@/app/lib/budget';
 import { statusOf, vendorStatusPill, vendorStatusStyle } from '@/app/lib/vendors';
 import ModalShell from '@/app/components/ModalShell';
+import { buildDemoContent } from '@/app/lib/demoContent';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -65,19 +66,31 @@ function countdown(iso: string, nowMs: number): Countdown | null {
 }
 
 export default function HomePage() {
-  const { workspaceId, partnerNames, entitlement } = useWorkspace();
+  const { workspaceId, partnerNames, entitlement, isDemo } = useWorkspace();
   const canEdit = entitlement.canEdit;
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
-  const me        = useQuery(api.workspaces.getMyUserId);
-  const guests    = useQuery(api.guests.list,            { workspaceId });
-  const settings  = useQuery(api.budget.getSettings,     { workspaceId });
-  const lineItems = useQuery(api.budget.listLineItems,   { workspaceId });
-  const budgetCats = useQuery(api.budget.listCategories, { workspaceId });
-  const vendors   = useQuery(api.vendors.listVendors,    { workspaceId });
-  const vendorCats = useQuery(api.vendors.listCategories,{ workspaceId });
-  const site      = useQuery(api.weddingSite.get,        { workspaceId });
-  const tasks     = useQuery(api.tasks.list,             { workspaceId });
-  const notes     = useQuery(api.notes.list,             { workspaceId });
+  const me         = useQuery(api.workspaces.getMyUserId);
+  const realGuests = useQuery(api.guests.list,            { workspaceId });
+  const settings   = useQuery(api.budget.getSettings,     { workspaceId });
+  const realLineItems = useQuery(api.budget.listLineItems,   { workspaceId });
+  const realBudgetCats = useQuery(api.budget.listCategories, { workspaceId });
+  const realVendors   = useQuery(api.vendors.listVendors,    { workspaceId });
+  const realVendorCats = useQuery(api.vendors.listCategories,{ workspaceId });
+  const realSite   = useQuery(api.weddingSite.get,        { workspaceId });
+  const realTasks  = useQuery(api.tasks.list,             { workspaceId });
+  const realNotes  = useQuery(api.notes.list,             { workspaceId });
+
+  // Example-wedding fixtures in place of the (real, empty) workspace for a
+  // locked account that hasn't started its trial yet — see WorkspaceContext.
+  const guests    = isDemo ? demo.guests : realGuests;
+  const lineItems = isDemo ? demo.budgetLineItems : realLineItems;
+  const budgetCats = isDemo ? demo.budgetCategories : realBudgetCats;
+  const vendors   = isDemo ? demo.vendors : realVendors;
+  const vendorCats = isDemo ? demo.vendorCategories : realVendorCats;
+  const site      = isDemo ? demo.weddingSite : realSite;
+  const tasks     = isDemo ? demo.tasks : realTasks;
+  const notes     = isDemo ? demo.notes : realNotes;
 
   // "Now" captured once at mount (lazy initializer — not an impure render call).
   const [nowMs] = useState(() => Date.now());
@@ -94,7 +107,7 @@ export default function HomePage() {
 
   const totals = sumTotals(lineItems ?? []);
   const basis = totals.actual > 0 ? totals.actual : totals.estimated;
-  const target = settings?.targetBudget ?? null;
+  const target = isDemo ? demo.targetBudget : (settings?.targetBudget ?? null);
   const remaining = target !== null ? target - basis : null;
 
   const doneTasks = (tasks ?? []).filter((t) => t.done).length;
@@ -144,7 +157,9 @@ export default function HomePage() {
         <div className="mb-7">
           <h1 className="font-serif font-light text-3xl text-ink leading-none">{greeting}</h1>
           <p className="text-sm text-ink-faint mt-1.5">
-            {formatLongDate(now)} &nbsp;·&nbsp; Here&rsquo;s where everything stands
+            {isDemo
+              ? "Example wedding — here's what Avow looks like once it's filled in."
+              : <>{formatLongDate(now)} &nbsp;·&nbsp; Here&rsquo;s where everything stands</>}
           </p>
         </div>
 

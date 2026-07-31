@@ -9,6 +9,7 @@
   --ink-faint: #8a8d97;   /* captions, footer */
   --accent: #b08968;      /* warm gold/tan */
   --accent-soft: #d4b896; /* lighter gold */
+  --accent-deep: #6b5744; /* dark taupe-beige — locked-state banner, not alarm-red */
   --rule: rgba(26, 31, 46, 0.08);
 }
 
@@ -20,6 +21,7 @@
   --color-ink-faint: var(--ink-faint);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
   --color-rule: var(--rule);
   --font-sans: var(--font-inter-tight), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-serif: var(--font-fraunces), 'Iowan Old Style', 'Palatino Linotype', Palatino, serif;

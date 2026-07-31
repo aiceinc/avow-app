@@ -33,15 +33,18 @@ import {
 } from '@/app/lib/guests';
 import ExportCsvButton from '@/app/components/ExportCsvButton';
 import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
+import { buildDemoContent } from '@/app/lib/demoContent';
 
 type SortKey = 'name-asc' | 'name-desc';
 
 export default function GuestsPage() {
-  const { workspaceId, workspaceName, partnerNames, entitlement } = useWorkspace();
+  const { workspaceId, workspaceName, partnerNames, entitlement, isDemo } = useWorkspace();
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
-  const guests        = useQuery(api.guests.list,          { workspaceId });
+  const realGuests    = useQuery(api.guests.list,          { workspaceId });
   const assignmentsQ  = useQuery(api.seatAssignments.list, { workspaceId });
   const tablesQ       = useQuery(api.tables.list,          { workspaceId });
+  const guests        = isDemo ? demo.guests : realGuests;
   // Stable refs so the memos below don't recompute every render while loading.
   const assignments = useMemo(() => assignmentsQ ?? [], [assignmentsQ]);
   const tables      = useMemo(() => tablesQ      ?? [], [tablesQ]);
@@ -130,6 +133,7 @@ export default function GuestsPage() {
             <h1 className="font-serif text-2xl text-ink">Guest List</h1>
             <p className="text-sm text-ink-faint mt-0.5">
               {total} guest{total !== 1 ? 's' : ''} · {attending} attending
+              {isDemo && ' · Example wedding'}
             </p>
           </div>
           <div className="flex items-center gap-2">

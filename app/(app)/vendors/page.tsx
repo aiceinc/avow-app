@@ -25,6 +25,7 @@ import { VendorStatus, VENDOR_STATUS_OPTIONS, statusOf, vendorStatusStyle } from
 import { formatMoney } from '@/app/lib/budget';
 import ExportCsvButton from '@/app/components/ExportCsvButton';
 import { downloadFile, exportFilename, toCsv } from '@/app/lib/exportFile';
+import { buildDemoContent } from '@/app/lib/demoContent';
 
 type SortKey = 'name-asc' | 'name-desc';
 
@@ -32,12 +33,16 @@ type SortKey = 'name-asc' | 'name-desc';
 type Rollup = { count: number; estimated: number; actual: number };
 
 export default function VendorsPage() {
-  const { workspaceId, workspaceName } = useWorkspace();
+  const { workspaceId, workspaceName, entitlement, isDemo } = useWorkspace();
+  const canEdit = entitlement.canEdit;
+  const demo = useMemo(() => buildDemoContent(workspaceId), [workspaceId]);
 
-  const vendors    = useQuery(api.vendors.listVendors,   { workspaceId });
-  const categories = useQuery(api.vendors.listCategories, { workspaceId });
+  const realVendors    = useQuery(api.vendors.listVendors,   { workspaceId });
+  const realCategories = useQuery(api.vendors.listCategories, { workspaceId });
   const lineItemsQ = useQuery(api.budget.listLineItems,  { workspaceId });
-  const lineItems  = useMemo(() => lineItemsQ ?? [], [lineItemsQ]);
+  const vendors    = isDemo ? demo.vendors : realVendors;
+  const categories = isDemo ? demo.vendorCategories : realCategories;
+  const lineItems  = useMemo(() => (isDemo ? demo.budgetLineItems : (lineItemsQ ?? [])), [isDemo, demo, lineItemsQ]);
 
   const seedDefaults   = useMutation(api.vendors.seedDefaultCategories);
   const addCategory    = useMutation(api.vendors.addCategory);
@@ -192,6 +197,7 @@ export default function VendorsPage() {
             <h1 className="font-serif text-2xl text-ink">Vendors</h1>
             <p className="text-sm text-ink-faint mt-0.5">
               {total} vendor{total !== 1 ? 's' : ''} · {booked} booked
+              {isDemo && ' · Example wedding'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -216,7 +222,11 @@ export default function VendorsPage() {
               }}
             />
             {!isEmpty && (
-              <button onClick={openAdd} className="btn btn-primary text-sm px-4 py-2">
+              <button
+                onClick={openAdd}
+                disabled={!canEdit}
+                className="btn btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 + Add a vendor
               </button>
             )}
@@ -361,6 +371,7 @@ export default function VendorsPage() {
                     vendor={v}
                     categoryName={v.categoryId ? catName.get(v.categoryId) : undefined}
                     rollup={rollupByVendor.get(v._id)}
+                    canEdit={canEdit}
                     onEdit={() => openEdit(v)}
                     onDelete={() => setDeleting(v)}
                   />
@@ -414,12 +425,14 @@ function VendorRow({
   vendor,
   categoryName,
   rollup,
+  canEdit,
   onEdit,
   onDelete,
 }: {
   vendor: Doc<'vendors'>;
   categoryName?: string;
   rollup?: Rollup;
+  canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -461,10 +474,12 @@ function VendorRow({
       </span>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Edit ${vendor.name}`}>Edit</button>
-        <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${vendor.name}`}>Delete</button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button onClick={onEdit} className="text-xs text-ink-faint hover:text-ink px-1.5 py-1 transition-colors" aria-label={`Edit ${vendor.name}`}>Edit</button>
+          <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700 px-1.5 py-1 transition-colors" aria-label={`Delete ${vendor.name}`}>Delete</button>
+        </div>
+      )}
     </li>
   );
 }

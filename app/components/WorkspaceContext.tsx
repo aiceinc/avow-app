@@ -51,6 +51,9 @@ export type WorkspaceContextValue = {
   switchWorkspace: () => void;
   /** Billing entitlement for the active workspace. */
   entitlement: Entitlement;
+  /** Locked AND never used a trial — modules render illustrative example
+   *  content instead of the (real, empty) workspace so it isn't a blank page. */
+  isDemo: boolean;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
